@@ -1,0 +1,88 @@
+﻿@inject IJSRuntime _jsRunTime
+<div class="my-1">
+    <div id="arrow" class="carousel slide rounded" data-ride="carousel" data-interval="false" style="background-image: linear-gradient(15deg, #99C0BC 0%, #88CCC6 100%);">
+        <ul class="carousel-indicators">
+            @for (var a = 0; a < images.Count; a++)
+            {
+                var active = a == 0 ? "active" : "";
+                <li data-target="#arrow" data-slide-to="@a" class="@active"></li>
+            }
+        </ul>
+        <div class="carousel-inner" role="listbox">
+            @{
+                int i = 0;
+            }
+            @foreach (var item in images)
+            {
+                var active = i == 0 ? "active" : "";
+                zoomimg = item;
+                <div class="carousel-item @active">
+                    <div class="text-center">
+                        <img src="@item" alt="" style="height: 330px; width: 530px; cursor: pointer" class="mx-auto d-block">
+                        <div class="justify-content-center ">
+                            <button type="button" id="btnZoom_@i" class="btn btn-warning btn-sm my-1" data-toggle="modal" data-target="#exampleModalCenter">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-zoom-in" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11M13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0"/>
+                                    <path d="M10.344 11.742q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1 6.5 6.5 0 0 1-1.398 1.4z"/>
+                                    <path fill-rule="evenodd" d="M6.5 3a.5.5 0 0 1 .5.5V6h2.5a.5.5 0 0 1 0 1H7v2.5a.5.5 0 0 1-1 0V7H3.5a.5.5 0 0 1 0-1H6V3.5a.5.5 0 0 1 .5-.5"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                 </div>
+                i++;
+            }
+        </div>
+        <a class="carousel-control-prev" href="#arrow" data-slide="prev" @onclick:preventDefault>
+            <span class="carousel-control-prev-icon"></span>
+        </a>
+        <a class="carousel-control-next" href="#arrow" data-slide="next" @onclick:preventDefault>
+            <span class="carousel-control-next-icon"></span>
+        </a>
+    </div>
+</div> 
+<div class="modal fade " id="exampleModalCenter"  tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen " role="document">
+        <div class="modal-content">
+            <div class="modal-header ">
+                <h5 class="modal-title" id="exampleModalLongTitle">Full Image</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div  class="modal-body text-center">
+                <img id="fullScreenImage" src="" alt="Reported Image" class="img-fluid"  >
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<string> images { get; set; } = new();
+    string zoomimg { get; set; } = "";
+    bool imgLoading { get; set; } = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await _jsRunTime.InvokeVoidAsync("import", "/js/bootstrap.min.js");
+
+        await _jsRunTime.InvokeVoidAsync("eval", @"
+            var selectedPatientData = document.getElementById('selectedImages');
+            var dataImages = selectedPatientData.getAttribute('data-selected-images');
+            var images = JSON.parse(dataImages);
+
+            var carouselItems = document.querySelectorAll('button[id^=""btnZoom_""]');
+
+            carouselItems.forEach(function (item, index) {
+                console.log('Setting up event listener for button ' + index);
+                item.addEventListener('click', function () {
+                    console.log('Button ' + index + ' clicked');
+                    var clickedImageSrc = images[index] || '';
+                    console.log('Setting fullScreenImage source to ' + clickedImageSrc);
+                    document.getElementById('fullScreenImage').src = clickedImageSrc;
+                });
+            });
+
+        ");
+    }
+}

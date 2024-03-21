@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\smpatients.Client.props" />
+</Project>

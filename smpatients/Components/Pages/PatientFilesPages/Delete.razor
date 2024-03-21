@@ -1,0 +1,125 @@
+@page "/patientfiles/delete"
+@inject smpatients.Data.ApplicationDbContext DB
+@using smpatients
+@inject NavigationManager NavigationManager
+@using Microsoft.EntityFrameworkCore
+@inject PatientServices patientService
+<PageTitle>Delete</PageTitle>
+@attribute [Authorize(Policy = "admin")]
+@rendermode @(new InteractiveServerRenderMode(prerender :false))
+<PageTitle>Delete</PageTitle>
+<smpatients.Components.Layout.MainLayoutWrapper>
+<h1>Delete</h1>
+
+<h3>Are you sure you want to delete this?</h3>
+<div class="card"> 
+    <div class="card-body">
+    <h4>PatientFiles</h4>
+    <hr />
+    @if (patientfiles is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">FileType</dt>
+            <dd class="col-sm-10">@patientfiles.FileType</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">AppId</dt>
+            <dd class="col-sm-10">@patientfiles.AppId</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">FileUrl</dt>
+            <dd class="col-sm-10">@patientfiles.FileUrl</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">FilePages</dt>
+            <dd class="col-sm-10">@patientfiles.FilePages</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">CreatedBy</dt>
+            <dd class="col-sm-10">@patientfiles.CreatedBy</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">CreatedAt</dt>
+            <dd class="col-sm-10">@patientfiles.CreatedAt</dd>
+        </dl>
+        <EditForm method="post" Model="patientfiles" OnValidSubmit="DeletePatientFiles" FormName="delete" Enhance>
+            <button type="submit" class="btn btn-danger" disabled="@(patientfiles is null)">Delete</button> |
+            <a href="/">Back to List</a>
+        </EditForm>
+    }
+</div>
+</div>
+</smpatients.Components.Layout.MainLayoutWrapper>
+@code {
+    PatientFiles? patientfiles;
+
+    [SupplyParameterFromQuery]
+    public int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        patientfiles = await DB.patientFiles.FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (patientfiles is null)
+        {
+            NavigationManager.NavigateTo("/");
+        }
+    }
+
+    public async Task DeletePatientFiles()
+    {
+         string localFilePath = "";
+
+        // Determine the type of file
+       var folderpath = await DetermineLocalFilePath(patientfiles.FileUrl);
+        localFilePath = folderpath;
+        // Check if the file exists before attempting deletion
+        if (File.Exists(localFilePath))
+        {
+            try
+            {
+                // Delete the file
+                File.Delete(localFilePath);
+            }
+            catch (Exception ex)
+            {
+                // Handle file deletion failure
+                Console.WriteLine($"Error deleting file: {ex.Message}");
+                // Optionally, you can choose to continue with the loop or break depending on your requirements
+                // continue;
+            }
+        }
+        else
+        {
+            // Log or handle the case where the file doesn't exist
+            Console.WriteLine($"File does not exist: {localFilePath}");
+        }
+        DB.patientFiles.Remove(patientfiles!);
+        await DB.SaveChangesAsync();
+       
+        NavigationManager.NavigateTo("/");
+    }
+    private async Task<string> DetermineLocalFilePath(string fileUrl)
+    {
+        if (patientService == null || string.IsNullOrEmpty(fileUrl))
+            return null;
+
+        string localFilePath = "";
+        if (patientService.isPDF(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "files", $"{Path.GetFileName(fileUrl)}");
+        else if (patientService.IsDocumentFile(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "documents", $"{Path.GetFileName(fileUrl)}");
+        else if (patientService.IsVideoFile(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "videos", $"{Path.GetFileName(fileUrl)}");
+        else if (patientService.IsImageFile(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "images", $"{Path.GetFileName(fileUrl)}");
+        else
+            localFilePath = Path.Combine("wwwroot", "others", $"{Path.GetFileName(fileUrl)}");
+
+        Console.WriteLine($"LocalFilePath: {localFilePath}");
+        return localFilePath;
+    }
+}

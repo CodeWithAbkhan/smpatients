@@ -1,0 +1,49 @@
+@* @page "/patients"
+@using Microsoft.AspNetCore.Components.QuickGrid
+@inject smpatients.Data.ApplicationDbContext DB
+@using smpatients
+
+<PageTitle>Index</PageTitle>
+
+<h1>Index</h1>
+
+<p>
+    <a href="patients/create">Create New</a>
+</p>
+
+<QuickGrid Class="table" Items="DB.patients">
+    <PropertyColumn Property="patient => patient.AppId" />
+    <PropertyColumn Property="patient => patient.City" />
+    <PropertyColumn Property="patient => patient.consent" />
+    <PropertyColumn Property="patient => patient.Country" />
+    <PropertyColumn Property="patient => patient.DateRegistered" />
+    <PropertyColumn Property="patient => patient.Dob" />
+    <PropertyColumn Property="patient => patient.Email" />
+    <PropertyColumn Property="patient => patient.Height" />
+    <PropertyColumn Property="patient => patient.HospitalsPatient" />
+    <PropertyColumn Property="patient => patient.Ignore" />
+    <PropertyColumn Property="patient => patient.MageInjuryFile" />
+    <PropertyColumn Property="patient => patient.MedicalImage" />
+    <PropertyColumn Property="patient => patient.MedReport" />
+    <PropertyColumn Property="patient => patient.MedReportFile" />
+    <PropertyColumn Property="patient => patient.MedicalConditions" />
+    <PropertyColumn Property="patient => patient.MoreInfo" />
+    <PropertyColumn Property="patient => patient.Name" />
+    <PropertyColumn Property="patient => patient.NumOfSurgery" />
+    <PropertyColumn Property="patient => patient.OptIn" />
+    <PropertyColumn Property="patient => patient.Options" />
+    <PropertyColumn Property="patient => patient.Phone" />
+    <PropertyColumn Property="patient => patient.ScanInjuryFile" />
+    <PropertyColumn Property="patient => patient.State" />
+    <PropertyColumn Property="patient => patient.SummaryOfCondition" />
+    <PropertyColumn Property="patient => patient.Url" />
+    <PropertyColumn Property="patient => patient.Weight" />
+    <PropertyColumn Property="patient => patient.Welcome" />
+    <PropertyColumn Property="patient => patient.Completed" />
+
+    <TemplateColumn Context="patient">
+        <a href="@($"patients/edit?id={patient.Id}")">Edit</a> |
+        <a href="@($"patients/details?id={patient.Id}")">Details</a> |
+        <a href="@($"patients/delete?id={patient.Id}")">Delete</a>
+    </TemplateColumn>
+</QuickGrid> *@

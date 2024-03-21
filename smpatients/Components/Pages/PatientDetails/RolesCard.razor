@@ -1,0 +1,139 @@
+﻿@inject PatientServices patientService
+@inject IToastService toastService
+@inject RoleManager<IdentityRole> roleManager
+@if (currentRole == "admin")
+{
+<div class="card  ">
+    <div class="card-body p-3">
+    @if (pt.AccessRoles == null)
+    {
+        <FluentProgressRing></FluentProgressRing>
+    }
+    else
+    {
+        if(allRoles!=null)
+        {
+        
+            @if (isloading)
+            {
+                <FluentProgressRing></FluentProgressRing>
+            }
+            else
+            {
+            <div style="overflow-x: auto;">
+                <h4 class="text-muted small">Who can Access this Record:</h4>
+                @if(allRoles == null)
+                {
+                    <FluentProgressRing></FluentProgressRing>
+                } else {
+                <EditForm Model="@selectedRoles" FormName="editRole" OnValidSubmit="@AddAccessRoleToPatient" novalidate>
+                    <DataAnnotationsValidator />
+                    <FluentValidationSummary />
+                    <div class="d-flex ">
+                        @foreach (var role in allRoles)
+                        {
+                            
+                            <FluentCheckbox @bind-Value="@selectedRoles[role]"  @key="role" id="@role" Label="@role" />
+
+                        }
+                    </div>
+                    <button  class="btn btn-outline-info btn-icon-text btn-sm mt-2" type="submit">
+                        Save Roles <i class="mdi mdi-content-save"></i>
+                        </button>
+                </EditForm>
+                }
+            </div>
+            }
+        
+        }
+        else
+        {
+            <em><p>No Role created!</p></em>
+        }
+    }
+    </div>
+    </div>
+}
+@code {
+    [Parameter] public PatientImages pt { get; set; } = new();
+    [Parameter] public string currentRole { get; set; } = "";
+    List<string> allRoles { get; set; } = new();
+    public List<AccessRole> accessRoles { get; set; } = new();
+    private bool isloading = false;
+    private Dictionary<string, bool> selectedRoles = new();
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+        var roles = roleManager.Roles.ToList();
+        if(roles!=null)
+        {
+            allRoles = roles?.Select(r => r.Name)?.Where(r => !String.Equals(r, "admin", StringComparison.OrdinalIgnoreCase))?.ToList() ?? new List<string>();
+        }
+        await LoadRoles();
+        }
+        catch(Exception ex)
+        {
+            
+        }
+    }
+    protected override async void OnParametersSet()
+    {
+        await LoadRoles();
+        StateHasChanged();
+    }
+    private async Task AddAccessRoleToPatient()
+    {
+        try
+        {
+            isloading = true;
+
+           Console.WriteLine($"Selected Roles: {string.Join(", ", selectedRoles.Keys)}");
+
+        var selectedRoleNames = selectedRoles.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+
+          
+            accessRoles = await patientService.AddRoleAccessToPatient(selectedRoleNames, pt.appId);
+            isloading = false;
+            toastService.ShowSuccess("Role(s) Updated Successfully!");
+            
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            toastService.ShowError("Roles could not be assigned. Please try again.");
+             isloading = false;
+        }
+    }
+    private async Task LoadRoles()
+    {
+
+        if(pt.AccessRoles!=null)
+        {
+        accessRoles = pt.AccessRoles;
+        try
+        {
+            isloading = true;
+
+            if (accessRoles != null)
+            {
+                selectedRoles = allRoles.ToDictionary(role => role, role => accessRoles.Any(ar => ar.Role == role));
+            }
+            else
+            {
+                selectedRoles = allRoles.ToDictionary(role => role, role => false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            toastService.ShowError("Roles could not be loaded. Please try again.");
+        }
+        finally
+        {
+            isloading = false;
+            StateHasChanged();
+        }
+        }
+    }
+}

@@ -1,0 +1,273 @@
+@page "/patients/delete"
+@inject smpatients.Data.ApplicationDbContext DB
+@using smpatients
+@inject PatientServices patientService
+@inject NavigationManager NavigationManager
+@inject IWebHostEnvironment _hostingEnvironment
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize(Policy = "admin")]
+@rendermode @(new InteractiveServerRenderMode(prerender :false))
+<PageTitle>Delete</PageTitle>
+<smpatients.Components.Layout.MainLayoutWrapper>
+<h1>Delete</h1>
+
+<h3>Are you sure you want to delete this?</h3>
+<div class="card">
+    <div class="card-body">
+        <h4>Patient</h4>
+        <hr />
+        @if (patient is null)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else
+        {
+            <div class="row">
+                <div class="col-md-4">
+                    <dl class="row">
+                        <dt class="col-sm-4">AppId</dt>
+                        <dd class="col-sm-8">@patient.AppId</dd>
+                    </dl>
+                     <dl class="row">
+                        <dt class="col-sm-4">Name</dt>
+                        <dd class="col-sm-8">@patient.Name</dd>
+                    </dl>
+                    <dl class="row">
+                        <dt class="col-sm-4">City</dt>
+                        <dd class="col-sm-8">@patient.City</dd>
+                    </dl>
+                    <dl class="row">
+                        <dt class="col-sm-4">consent</dt>
+                        <dd class="col-sm-8">@patient.consent</dd>
+                    </dl>
+                </div>
+                <div class="col-md-4">
+                    <dl class="row">
+                        <dt class="col-sm-4">Country</dt>
+                        <dd class="col-sm-8">@patient.Country</dd>
+                    </dl>
+                    <dl class="row">
+                        <dt class="col-sm-4">DateRegistered</dt>
+                        <dd class="col-sm-8">@patient.DateRegistered</dd>
+                    </dl>
+                    <dl class="row">
+                        <dt class="col-sm-4">Dob</dt>
+                        <dd class="col-sm-8">@patient.Dob</dd>
+                    </dl>
+                </div>
+                <div class="col-md-4">
+                    <dl class="row">
+                        <dt class="col-sm-4">Email</dt>
+                        <dd class="col-sm-8">@patient.Email</dd>
+                    </dl>
+                    <dl class="row">
+                        <dt class="col-sm-4">Height</dt>
+                        <dd class="col-sm-8">@patient.Height</dd>
+                    </dl>
+                    <dl class="row">
+                        <dt class="col-sm-4">HospitalsPatient</dt>
+                        <dd class="col-sm-8">@patient.HospitalsPatient</dd>
+                    </dl>
+                </div>
+            </div>
+            
+                <!-- Second set of three fields -->
+               <div class="row">
+                <!-- Third set of three fields -->
+                <div class="col-md-4">
+                   
+                    <dl class="row">
+                        <dt class="col-sm-4">MedicalConditions</dt>
+                        <dd class="col-sm-8">@patient.MedicalConditions</dd>
+                    </dl>
+                   
+                </div>
+                <!-- Fourth set of three fields -->
+                <div class="col-md-4"> 
+                    <dl class="row">
+                        <dt class="col-sm-4">MoreInfo</dt>
+                        <dd class="col-sm-8">@patient.MoreInfo</dd>
+                    </dl>
+                   
+                    <dl class="row">
+                        <dt class="col-sm-4">NumOfSurgery</dt>
+                        <dd class="col-sm-8">@patient.NumOfSurgery</dd>
+                    </dl>
+                    <dl class="row">
+                        <dt class="col-sm-4">OptIn</dt>
+                        <dd class="col-sm-8">@patient.OptIn</dd>
+                    </dl>
+                </div>
+            </div>
+            <EditForm method="post" Model="patient" OnValidSubmit="DeletePatient" FormName="delete" Enhance>
+                @if(isLoading)
+                {
+                    <FluentProgressRing></FluentProgressRing>
+                }
+                else{
+                     <button type="submit" class="btn btn-danger" disabled="@(patient is null)">Delete</button> 
+                    
+                }
+               |<a href="/">Back to List</a>
+            </EditForm>
+        }
+    </div>
+</div>
+
+</smpatients.Components.Layout.MainLayoutWrapper>
+@code {
+  Patient? patient;
+
+    [SupplyParameterFromQuery]
+    public int Id { get; set; }
+    private string projectRootPath;
+    private string outputPath;
+    private string storagePath;
+    protected override async Task OnInitializedAsync()
+    {
+        patient = await DB.patients
+                        .Include(p => p.Files)
+                        .Include(p => p.Reviews)
+                        .Include(p => p.AccessRoles)
+                        .Include(p => p.Images)
+                        .FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (patient is null)
+        {
+            NavigationManager.NavigateTo("/");
+        }
+
+            projectRootPath = _hostingEnvironment.ContentRootPath;
+            outputPath = Path.Combine(projectRootPath, "wwwroot/Content");
+            storagePath = Path.Combine(projectRootPath, "storage");
+    }
+    private bool isLoading = false;
+    public async Task DeletePatient()
+    {
+        
+        isLoading = true;
+
+        if (patient == null)
+        {
+            isLoading = false;
+            return;
+        }
+
+        await using var transaction = await DB.Database.BeginTransactionAsync();
+
+        try
+        {
+            // Remove associated files
+            foreach (var file in patient.Files)
+            {
+                 string localFilePath = "";
+
+                // Determine the type of file
+                 var folderloc = await DetermineLocalFilePath(file.FileUrl);
+                 localFilePath = folderloc;
+                if (File.Exists(localFilePath))
+                {
+                    File.Delete(localFilePath);
+                     await Task.Delay(TimeSpan.FromSeconds(1));
+                    
+                     Console.WriteLine($" file deleted: {localFilePath}");
+
+                }
+                else
+                {
+                    Console.WriteLine($"Error file not found: {localFilePath}");
+                }
+                DB.patientFiles.Remove(file);
+            }
+
+            // Remove associated Reviews and their files
+            foreach (var review in patient.Reviews)
+            {
+                foreach (var file in review.Files)
+                {
+                var FilePath = "";
+                    var folderloc = await DetermineLocalFilePath(file.FileUrl);
+                 FilePath = folderloc;
+                if (File.Exists(FilePath))
+                {
+                    File.Delete(FilePath);
+                    await Task.Delay(TimeSpan.FromSeconds(1));
+
+                     Console.WriteLine($" file of review deleted: {FilePath}");
+
+                }
+                else
+                {
+                    Console.WriteLine($"Error file of review not found: {FilePath}");
+                }
+                    DB.patientFiles.Remove(file);
+                }
+                DB.reviews.Remove(review);
+            }
+            await Task.Delay(TimeSpan.FromSeconds(2));
+
+            // Remove associated images
+            foreach (var img in patient.Images)
+            {
+                var path = "";
+                 var folderloc = await DetermineLocalFilePath(img.imgUrl);
+
+                 path = folderloc;
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                     await Task.Delay(TimeSpan.FromSeconds(1));
+
+                     Console.WriteLine($" image deleted: {path}");
+                }
+                else
+                {
+                    Console.WriteLine($"Error image not found: {path}");
+                }
+                DB.patientImages.Remove(img);
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(3));
+
+            await DB.SaveChangesAsync();
+            await transaction.CommitAsync();
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(TimeSpan.FromSeconds(2));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            Console.WriteLine($"Error occurred: {ex.Message}");
+            isLoading = false;
+            return;
+        }
+
+        // Remove the patient entity from the database
+        DB.patients.Remove(patient);
+
+        await DB.SaveChangesAsync();
+
+        isLoading = false;
+        NavigationManager.NavigateTo("/");
+    }
+    private async Task<string> DetermineLocalFilePath(string fileUrl)
+    {
+        if (patientService == null || string.IsNullOrEmpty(fileUrl))
+            return null;
+
+        string localFilePath = "";
+        if (patientService.isPDF(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "files", $"{Path.GetFileName(fileUrl)}");
+        else if (patientService.IsDocumentFile(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "documents", $"{Path.GetFileName(fileUrl)}");
+        else if (patientService.IsVideoFile(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "videos", $"{Path.GetFileName(fileUrl)}");
+        else if (patientService.IsImageFile(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "images", $"{Path.GetFileName(fileUrl)}");
+        else
+            localFilePath = Path.Combine("wwwroot", "others", $"{Path.GetFileName(fileUrl)}");
+
+        Console.WriteLine($"LocalFilePath: {localFilePath}");
+        return localFilePath;
+    }
+}

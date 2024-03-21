@@ -1,0 +1,198 @@
+﻿@inject IDialogService dialogService
+@* @inject PatientServices patientServices *@
+@* @attribute [StreamRendering] *@
+@if (Reviews == null || !Reviews.Any())
+{
+   
+}
+else{
+<div class="card p-0 my-0 bg-gradient-info border-top-1">
+    <div class="card-body p-0">   
+    <div class="d-flex ">
+        <span class="m-2 me-2">
+        <i class="mdi mdi-review-text"></i>
+        Reviews:</span>
+    </div>
+    <div class="border  py-2 rounded" style="background-color:#f2edf3; max-height: 310px; overflow-y: auto;">
+        @foreach (var review in Reviews)
+        {
+            <div class="card p-0 mx-3 my-2 shadow-sm">
+                <div class="card-body p-2 m-0 ">
+                    <div class="d-flex">
+                        <div class="d-flex align-items-center me-4 text-muted small font-weight-light">
+                            <i class="mdi mdi-account-outline icon-sm me-2"></i>
+                            <span>@review?.Createdby?.Split('@')[0]</span>
+                        </div>
+                        <div class="d-flex align-items-center text-muted small font-weight-light">
+                            <i class="mdi mdi-clock icon-sm me-2"></i>
+                            <span> @( @review?.CreatedAt.ToString("dd, MMM, yyyy HH:mm"))</span>
+                        </div>
+                    </div>
+                    <p class="pt-1 mb-0 small" style="white-space: pre-line;">
+                        @review?.ReviewsContent
+                    </p>
+                      @if(review.Files.Count() ==0)
+                        {
+                            <p></p>
+                        }
+                        else{
+                            @foreach(var file in review.Files)
+                            {
+                                <div class="d-flex py-1 gap-2 justify-content-between mx-auto align-items-center small">
+                                    <p class="d-flex pt-1 mb-0 small" style="white-space: pre-line;">
+                                        <span> @(Path.GetFileName(file.FileUrl).Replace(AppId + "-", ""))</span>
+                                    </p>
+                                    <div class="d-flex align-items-center gap-1 small">
+                                    <NavLink href="@file.FileUrl" download="@file.FileUrl" class="btn btn-outline btn-sm btn-rounded btn-icon-text gap-1">
+                                        <i class="mdi mdi-arrow-down-bold-circle small"></i> Download
+                                    </NavLink>
+                                     @if (file.FileType=="video")
+                                     {
+                                        <button onclick="@(async () => await OpenDialogVideoAsync(file.FileUrl))"
+                                            class="btn btn-outline-info btn-sm btn-rounded btn-icon-text gap-1">
+                                            <i class="mdi mdi-play-box-outline"></i> Play
+                                        </button>
+                                     }
+                                     else{
+
+                                     
+                                        <button onclick="@(async () => await OpenDialogPDFViewerAsync(file.FileUrl,AppId ))"
+                                            class="btn btn-outline-info btn-sm btn-rounded btn-icon-text gap-1">
+                                            <i class="mdi mdi mdi-file-pdf small"></i> Open
+                                        </button>
+                                    }
+                                    @if (currentRole == "admin")
+                                    {
+                                        <NavLink href="@($"patientfiles/delete?id={file.Id}")" class="btn btn-outline btn-sm btn-rounded btn-icon-text">
+                                        <i class="mdi mdi-delete icon-sm"></i></NavLink>
+                                    }
+                                    </div>
+                                </div>
+                            } 
+                        }
+                  
+                    @if(review.Createdby==currentUser)
+                    {
+                        <div class="d-flex justify-content-end mx-auto">
+                          <button onclick="@(async () => await OpenDialogFileAsync(review.Id,review.appId,review.Createdby))"
+                                class="btn btn-primary btn-sm btn-rounded btn-icon-text gap-1">
+                                <i class="mdi mdi-attachment text-sccess"></i> 
+                            </button>
+                        </div>
+                    }
+
+                </div>
+            </div>
+        }
+    </div>
+        
+    </div>
+</div>
+}
+@code {
+    [Parameter] public int AppId { get; set; }
+    [Parameter] public List<Reviews> Reviews { get; set; }
+    [Parameter] public string currentUser { get; set; }
+    [Parameter] public string currentRole { get; set; }
+    [Parameter] public Func<Task> OnInitiazledCallback { get; set; }
+
+    DialogUploadFile reviewedUser = new();
+    private bool _trapFocus1 = true;
+    private bool _modal1 = true;
+    @* private List<Reviews> Reviews {get; set;} = new(); *@
+    private async Task OpenDialogFileAsync(int id,int AppId,string Createdby)
+    {
+        reviewedUser.currentUser = currentUser;
+        reviewedUser.Name =  Createdby;
+        reviewedUser.AppId =  AppId;
+        reviewedUser.ReviewId = id;
+        reviewedUser.currentRole = "";
+        Console.WriteLine($"Open dialog centered");
+        DialogParameters parameters = new()
+            {
+            Title = $"Add File for your review",
+            Width = "940px",
+            TrapFocus = _trapFocus1,
+            PreventDismissOnOverlayClick = true,
+            Modal = _modal1,
+            PrimaryAction = null, 
+            SecondaryAction = null,
+            PreventScroll = true
+        };
+        
+        IDialogReference dialog = await dialogService.ShowDialogAsync<UploadreviewFilesModal>(reviewedUser, parameters);
+        DialogResult? result = await dialog.Result;
+        if (result.Data is not null)
+        {
+            Patient? simplePerson = result.Data as Patient;
+            Console.WriteLine($"Dialog closed by {reviewedUser?.Name} ) - Canceled: {result.Cancelled}");
+        }
+        else
+        {
+            Console.WriteLine($"Dialog closed - Canceled: {result.Cancelled}");
+        }
+      
+        await base.OnInitializedAsync();
+
+        if (OnInitiazledCallback != null)
+        {
+            await OnInitiazledCallback.Invoke();
+        }
+    }
+  
+    
+   DialogData PdfData = new();
+    private async Task OpenDialogPDFViewerAsync(string PdfUrl,int AppId)
+    {
+        PdfData.Name = PdfUrl;
+        PdfData.AppId = AppId;
+        PdfData.currentUser = "";
+        PdfData.currentRole = "";
+        DialogParameters parameters = new()
+            {
+            Title = $"File of Patient {PdfData.currentUser}",
+            PrimaryAction = "", 
+            SecondaryAction = "Close",
+             Width = "1280px",
+            TrapFocus = true,
+            Modal = true,
+            PreventScroll = true
+        };
+        IDialogReference dialog = await dialogService.ShowDialogAsync<PdfViewerModal>(PdfData, parameters);
+        DialogResult? result = await dialog.Result;
+        if (result.Data is not null)
+        {
+            Patient? simplePerson = result.Data as Patient;
+            Console.WriteLine($"Dialog closed by {PdfData?.Name} ) - Canceled: {result.Cancelled}");
+
+        }
+        else
+        {
+            Console.WriteLine($"Dialog closed - Canceled: {result.Cancelled}");
+        }
+        await OnInitializedAsync();
+    }
+    private bool _trapFocus2 = true;
+    private bool _modal2 = true;
+    DialogData VideoData = new();
+    private async Task OpenDialogVideoAsync(string VideoUrl)
+    {
+        VideoData.Name = VideoUrl;
+        VideoData.AppId = 0;
+        VideoData.currentUser = "";
+        VideoData.currentRole = "";
+        DialogParameters parameters = new()
+            {
+                Title = $"Video of Patient {VideoData.currentUser}",
+            @* PrimaryAction = "Yes", *@
+            @* SecondaryAction = "No", *@
+           Width = "1280px",
+            TrapFocus = _trapFocus2,
+            Modal = _modal2,
+            PreventScroll = true
+        };
+        IDialogReference dialog = await dialogService.ShowDialogAsync<VideoDialog>(VideoData, parameters);        
+        await OnInitializedAsync();
+    }
+
+}

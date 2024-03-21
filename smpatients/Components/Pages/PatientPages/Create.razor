@@ -1,0 +1,252 @@
+@page "/patients/create"
+@inject smpatients.Data.ApplicationDbContext DB
+@inject PatientServices patientService
+@using smpatients
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Policy = "admin")]
+@rendermode @(new InteractiveServerRenderMode(prerender :false))
+<PageTitle>Create</PageTitle>
+<smpatients.Components.Layout.MainLayoutWrapper>
+ <div class="page-header">
+    <h3 class="page-title">
+      <span class="page-title-icon bg-gradient-primary text-white me-2">
+        <i class="mdi mdi-account-plus"></i>
+      </span> Create Patient
+    </h3>
+    <nav aria-label="breadcrumb">
+      @* <ul class="breadcrumb">
+        <li class="breadcrumb-item active" aria-current="page">
+          <span></span>Overview <i class="mdi mdi-alert-circle-outline icon-sm text-primary align-middle"></i>
+        </li>
+      </ul> *@
+    </nav>
+  </div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+            <EditForm method="post" Model="Patient" OnValidSubmit="AddPatient" FormName="create" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" />
+            <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="appid" class="form-label">AppId:</label> 
+                        <InputNumber id="appid" disabled="true" @bind-Value="@Patient.AppId" class="form-control form-control-sm" /> 
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="name" class="form-label">Name:</label> 
+                        <InputText id="name" @bind-Value="Patient.Name" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.Name" class="text-danger" /> 
+                    </div>       
+                <div class="col-md-4 mb-3">
+                        <label for="email" class="form-label">Email:</label> 
+                        <InputText id="email" @bind-Value="Patient.Email" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.Email" class="text-danger" /> 
+                    </div>
+                </div>
+                
+                <div class="row">
+                 
+                    <div class="col-md-4 mb-3">
+                        <label for="city" class="form-label">City:</label> 
+                        <InputText id="city" @bind-Value="Patient.City" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.City" class="text-danger" /> 
+                    </div>            
+                    <div class="col-md-4 mb-3">
+                        <label for="state" class="form-label">State:</label> 
+                        <InputText id="state" @bind-Value="Patient.State"  class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.State" class="text-danger" /> 
+                    </div>  
+                    <div class="col-md-4 mb-3">
+                        <label for="country" class="form-label">Country:</label> 
+                        <InputText id="country" @bind-Value="Patient.Country" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.Country" class="text-danger" /> 
+                    </div>       
+                </div>
+                
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="dob" class="form-label">Dob:</label> 
+                        <InputDate id="dob" @bind-Value="Patient.Dob" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.Dob" class="text-danger" /> 
+                    </div>        
+                    <div class="col-md-4 mb-3">
+                        <label for="dateregistered" class="form-label">DateRegistered:</label> 
+                        <InputDate id="dateregistered" @bind-Value="Patient.DateRegistered" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.DateRegistered" class="text-danger" /> 
+                    </div>   
+                    <div class="col-md-4 mb-3">
+                        <label for="DateOfInjury" class="form-label">DateOfInjury:</label> 
+                        <InputDate id="DateOfInjury" @bind-Value="Patient.DateOfInjury" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.DateOfInjury" class="text-danger" /> 
+                    </div>   
+                </div>
+
+                <div class="row">
+                 <div class="col-md-12 mb-3">
+                    <label for="summaryofcondition" class="form-label">SummaryOfCondition:</label> 
+                    <textarea id="summaryofcondition" @bind="Patient.SummaryOfCondition" class="form-control form-control-sm"></textarea>
+                    <ValidationMessage For="() => Patient.SummaryOfCondition" class="text-danger" />
+                </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="medicalconditions" class="form-label">MedicalConditions:</label> 
+                        <InputText id="medicalconditions" @bind-Value="Patient.MedicalConditions" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.MedicalConditions" class="text-danger" /> 
+                    </div>        
+                    <div class="col-md-6 mb-3">
+                        <label for="moreinfo" class="form-label">MoreInfo:</label> 
+                        <InputText id="moreinfo" @bind-Value="Patient.MoreInfo" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.MoreInfo" class="text-danger" /> 
+                    </div>        
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="phone" class="form-label">Phone:</label> 
+                        <input id="phone" @bind="Patient.PhoneNew" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.PhoneNew" class="text-danger" /> 
+                    </div>  
+                         <div class="col-md-6 mb-3">
+                        <label for="hospitalspatient" class="form-label">HospitalsPatient:</label> 
+                        <InputText id="hospitalspatient" @bind-Value="Patient.HospitalsPatient" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.HospitalsPatient" class="text-danger" /> 
+                    </div>    
+                      
+                </div>
+
+                <div class="row">
+                        
+                    <div class="col-md-4 mb-3">
+                        <label for="numofsurgery" class="form-label">NumOfSurgery:</label> 
+                        <InputText id="numofsurgery" @bind-Value="Patient.NumOfSurgery" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.NumOfSurgery" class="text-danger" /> 
+                    </div>     
+                    <div class="col-md-4 mb-3">
+                        <label for="weight" class="form-label">Weight:</label> 
+                        <InputNumber id="weight" @bind-Value="Patient.Weight" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.Weight" class="text-danger" /> 
+                    </div>  
+                    <div class="col-md-4 mb-3">
+                        <label for="height" class="form-label">Height:</label> 
+                        <InputNumber id="height" @bind-Value="Patient.Height" class="form-control form-control-sm" /> 
+                        <ValidationMessage For="() => Patient.Height" class="text-danger" /> 
+                    </div>     
+                </div>
+    
+                @* <div class="mb-3">
+                    <label for="url" class="form-label">Url:</label> 
+                    <InputText id="url" @bind-Value="Patient.Url" class="form-control form-control-sm" /> 
+                    <ValidationMessage For="() => Patient.Url" class="text-danger" /> 
+                </div>        *@
+                @* <div class="mb-3">
+                    <label for="welcome" class="form-label">Welcome:</label> 
+                    <InputText id="welcome" @bind-Value="Patient.Welcome" class="form-control form-control-sm" /> 
+                    <ValidationMessage For="() => Patient.Welcome" class="text-danger" /> 
+                </div>        
+                <div class="mb-3">
+                    <label for="completed" class="form-label">Completed:</label> 
+                    <InputCheckbox id="completed" @bind-Value="Patient.Completed" class="form-check-input" /> 
+                    <ValidationMessage For="() => Patient.Completed" class="text-danger" /> 
+                </div>         *@
+                @* <div class="mb-3">
+                    <label for="consent" class="form-label">consent:</label> 
+                    <InputText id="consent" @bind-Value="Patient.consent" class="form-control form-control-sm" /> 
+                    <ValidationMessage For="() => Patient.consent" class="text-danger" /> 
+                </div>         *@      
+                @* <div class="mb-3">
+                    <label for="ignore" class="form-label">Ignore:</label> 
+                    <InputText id="ignore" @bind-Value="Patient.Ignore" class="form-control form-control-sm" /> 
+                    <ValidationMessage For="() => Patient.Ignore" class="text-danger" /> 
+                </div>        
+                <div class="mb-3">
+                    <label for="mageinjuryfile" class="form-label">MageInjuryFile:</label> 
+                    <InputText id="mageinjuryfile" @bind-Value="Patient.MageInjuryFile" class="form-control form-control-sm" /> 
+                    <ValidationMessage For="() => Patient.MageInjuryFile" class="text-danger" /> 
+                </div>        
+                <div class="mb-3">
+                    <label for="MedicalImage" class="form-label">MedicalImage:</label> 
+                    <InputText id="MedicalImage" @bind-Value="Patient.MedicalImage" class="form-control form-control-sm" /> 
+                    <ValidationMessage For="() => Patient.MedicalImage" class="text-danger" /> 
+                </div>        
+                <div class="mb-3">
+                    <label for="medreport" class="form-label">MedReport:</label> 
+                    <InputText id="medreport" @bind-Value="Patient.MedReport" class="form-control form-control-sm" /> 
+                    <ValidationMessage For="() => Patient.MedReport" class="text-danger" /> 
+                </div>        
+                <div class="mb-3">
+                    <label for="medreportfile" class="form-label">MedReportFile:</label> 
+                    <InputText id="medreportfile" @bind-Value="Patient.MedReportFile" class="form-control form-control-sm" /> 
+                    <ValidationMessage For="() => Patient.MedReportFile" class="text-danger" /> 
+                </div>         *@    
+                @* <div class="mb-3">
+                    <label for="optin" class="form-label">OptIn:</label> 
+                    <InputText id="optin" @bind-Value="Patient.OptIn" class="form-control form-control-sm" /> 
+                    <ValidationMessage For="() => Patient.OptIn" class="text-danger" /> 
+                </div>         *@
+                @* <div class="mb-3">
+                    <label for="options" class="form-label">Options:</label> 
+                    <InputText id="options" @bind-Value="Patient.Options" class="form-control form-control-sm" /> 
+                    <ValidationMessage For="() => Patient.Options" class="text-danger" /> 
+                </div>         *@
+                @* <div class="mb-3">
+                    <label for="scaninjuryfile" class="form-label">ScanInjuryFile:</label> 
+                    <InputText id="scaninjuryfile" @bind-Value="Patient.ScanInjuryFile" class="form-control form-control-sm" /> 
+                    <ValidationMessage For="() => Patient.ScanInjuryFile" class="text-danger" /> 
+                </div>    *@
+                <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-outline-info btn-icon-text">
+                    <i class="mdi mdi-file-check btn-icon-prepend"></i>Create</button>
+                    <a class="btn btn-outline-info btn-icon-text" href="/">
+                    <i class="mdi mdi-arrow-left btn-icon-prepend"></i>
+                    Back to Patient Details</a>
+                </div>
+            </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+</smpatients.Components.Layout.MainLayoutWrapper>
+@code {
+
+    [SupplyParameterFromForm]
+    public Patient Patient { get; set; } = new();
+   int appId = 0;
+
+    // To protect from overposting attacks, see https://aka.ms/RazorPagesCRUD
+   protected override  void OnInitialized()
+    {
+        try
+        {
+            var lastPatient = DB.patients.OrderByDescending(p => p.AppId).FirstOrDefault();
+            
+            if (lastPatient != null)
+            {
+               
+                appId = lastPatient.AppId +1;
+                Patient.AppId = appId; // Set the value of AppId in the Patient object
+            }
+            else{
+                appId =  10000;
+                Patient.AppId = appId; // Set the value of AppId in the Patient object
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("AppId issue:" + ex.Message);
+        }
+    }
+
+    public async Task AddPatient()
+    {
+        var isCompleted = patientService.IsPatientComplete(Patient);
+        Patient.Completed = isCompleted;
+        DB.patients.Add(Patient);
+        await DB.SaveChangesAsync();
+        NavigationManager.NavigateTo("/");
+    }
+
+}

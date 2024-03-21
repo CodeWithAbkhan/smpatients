@@ -1,0 +1,76 @@
+﻿@page "/ManageAllUsers"
+@page "/Account/Manage/ManageAllUsers"
+
+@using Microsoft.AspNetCore.Identity
+@using smpatients.Data
+@using System.ComponentModel.DataAnnotations
+@inject UserManager<ApplicationUser> userManager
+@inject RoleManager<IdentityRole> roleManager
+@inject ApplicationDbContext _dbcontext
+@rendermode @(new InteractiveServerRenderMode(prerender :false))
+<AuthorizeView Policy="Admin">
+    <Authorized>
+        <h3>Manage Users</h3>
+        <div class="row">
+            <!-- User List -->
+            <div class="col-md-6">
+                <table class="table table-sm table-bordered rounded">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>Username</th>
+                            <th>Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in Users)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="">
+                                        <p>@user.UserName</p>
+                                    </div>
+                                </td>
+                                <td>
+                                    <FluentButton IconEnd="@(new Icons.Regular.Size16.Delete())" Disabled="@(user.UserName == "administrator@smpatients.org")" @onclick="async () => { await DeleteUser(user); }"></FluentButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <h3 class="text-danger">You are not allowed to view this page. If you think otherwise, contact...</h3>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    List<ApplicationUser> Users { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        
+        
+        Users = userManager.Users.ToList();
+        await Task.Delay(TimeSpan.FromSeconds(5));
+    }
+
+    async Task DeleteUser(ApplicationUser user)
+    {
+        await using var transaction = await _dbcontext.Database.BeginTransactionAsync();
+        try
+        {
+            await userManager.DeleteAsync(user);
+            await _dbcontext.SaveChangesAsync();
+            Users =  userManager.Users.ToList();
+            await transaction.CommitAsync();
+        }
+        catch (Exception ex)
+        {
+            // Handle the exception as needed
+            Console.WriteLine("manage all users error: " +ex.Message);
+            await transaction.RollbackAsync();
+        }
+    }
+}

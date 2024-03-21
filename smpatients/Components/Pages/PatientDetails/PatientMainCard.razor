@@ -1,0 +1,449 @@
+﻿<!-- PatientDetails.razor -->
+@inherits ComponentBase
+@inject AuthenticationStateProvider authenticationStateProvider
+@inject UserManager<smpatients.Data.ApplicationUser> userManager
+@inject RoleManager<IdentityRole> roleManager
+@inject PatientServices patientService
+@inject PdfImageConverter pdfImageConverter
+@inject IToastService toastService
+@inject IDialogService dialogService
+@attribute [StreamRendering]
+@if(pt == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+<div class="row p-2 m-0 bg-white">
+    @if(patient == null)
+    {
+        <p>Loading...</p>
+    }
+    else{
+        <div class="row m-0 p-0 ">
+             <ProfileCard pt="@patient" />
+        </div>
+        <div class="col-md-6 px-1">
+        @if (pt.Images.Any())
+        {
+         <CarouselSlider images="@pt.Images" />
+        }
+        @if(patient == null)
+        {
+            <p>No Data</p>
+        }
+        else{
+            if(patient.Files.Any())
+            { 
+                <FilesCard currentRole="@currentRole" pt="@patient" />
+            }}
+        <div class="row my-1 m-0 p-0 border-top-0 border border-2">
+          <div class="card m-0">
+            <div class="card-body p-1">  
+          <div class="d-flex justify-content-end mx-auto">
+               
+                <div class=" m-1">
+                    <button class="btn btn-outline-info btn-icon-text btn-sm" 
+                      onclick="@(async () => await OpenDialogFileAsync())">
+                        <i class="mdi mdi-upload btn-icon-prepend"></i>
+                        Upload Record
+                    </button>
+                </div>
+            </div>
+           
+            </div>
+          </div>
+        </div> 
+        
+        </div>
+        <div class="col-md-6 px-1">
+       
+        <div class="row my-1 mx-0 p-0 border border-2">
+        @if(patient!=null)
+            {
+        
+         <ReviewsCard AppId="patient.AppId" Reviews="@patient.Reviews" currentUser="@currentUser" currentRole="@currentRole" OnInitiazledCallback="ParentInitializedAsync" />
+           
+            }
+            <div class="row my-1 mx-0 p-0 border-top-0 border-2">
+             <div class="card m-0">
+                 <div class="card-body p-1">  
+                    <div class="d-flex justify-content-end mx-auto">
+                     <div class="m-1">
+                        <button type="button" class=" btn btn-outline-info btn-icon-text btn-sm"  
+                        onclick="@(async () => await OpenDialogReviewsAsync())" Name="Add review">
+                         <i class="mdi mdi-review btn-icon-prepend"></i>
+                        Add New review
+                        </button>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+       
+        @if(patient.Files.Any())
+        {
+        <div class="row my-1 mx-0 p-0 border border-2">
+            <VideosCard currentRole="@currentRole" pt="@patient"  @rendermode="InteractiveServer" />
+        </div>
+        }
+        </div>
+    }
+    @if(patient.SummaryOfCondition!="")
+    {
+    <div class="row my-1 mx-0 p-0 border border-2">
+    <div class="card">
+        <div class="card-body p-2">
+            <strong>Summary: </strong><p class="font-weight-light m-2">@patient.SummaryOfCondition</p>
+        </div>
+    </div>
+    </div>
+    }
+    @if (currentRole == "admin")
+    {
+    <div class="row my-1 mx-0 p-0 border border-2">
+        <RolesCard currentRole="@currentRole" pt="@pt" />
+    </div> 
+    }
+</div>
+}
+<div id="selectedImages" data-selected-images="@System.Text.Json.JsonSerializer.Serialize(pt?.Images)" data-permanent></div>
+@code {
+    [Parameter] public int AppId { get; set; } = new();
+    [Parameter] public string currentUser { get; set; } = string.Empty;
+    [Parameter] public string currentRole { get; set; } = string.Empty;
+    private bool _trapFocus = true;
+    private bool _modal = true;
+    private bool _trapFocus1 = true;
+    private bool _modal1 = true;
+    bool imgLoading { get; set; } = false;   
+    PatientImages pt {get; set;} = default!;
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            currentUser = user?.Identity?.Name;
+            var currentRoles = user?.FindAll(ClaimTypes.Role)?.Select(c => c.Value).ToList() ?? new List<string>();
+            currentRole = currentRoles.Contains("admin") ? "admin" : currentRoles.FirstOrDefault() ?? "";
+            if (AppId != 0)
+            {
+                await LoadPatientData(AppId);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogError("Initialization error", ex);
+        }
+        if (pt != null && pt.Images != null && pt.Images.Any())
+        {
+            pt.Images = pt.Images
+                .Where(filePath => !string.IsNullOrWhiteSpace(filePath) && IsImageFile(filePath))
+                .ToList();
+        }
+        StateHasChanged();
+    }
+    private async Task ParentInitializedAsync()
+    {
+       await OnInitializedAsync();
+    }
+    Patient patient {get; set;} = new Patient();
+    public async Task LoadPatientData(int appId)
+    {
+        try
+        {
+            patient = await patientService.GetPatientbyAppId(appId);
+            if (patient != null)
+            {
+                pt = MapPatientToPatientImages(patient);
+                await ProcessAllAsync(patient);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogError("Loading patient data error", ex);
+        }
+    }
+    DialogData editPatient1 = new();
+    private async Task OpenDialogReviewsAsync()
+    { 
+        editPatient1.currentUser = currentUser;
+        editPatient1.Name = patient.Name ?? "";
+        editPatient1.AppId = AppId;
+        editPatient1.currentRole = currentRole;
+        Console.WriteLine($"Open dialog review centered");
+        DialogParameters parameters = new()
+        {
+            Title = $"Add review for {editPatient1.Name}",
+            @* PrimaryAction = "Yes", *@
+            @* SecondaryAction = "No", *@
+            Width = "640px",
+            TrapFocus = _trapFocus,
+            Modal = _modal,
+            PreventScroll = true
+        };
+        IDialogReference dialog = await dialogService.ShowDialogAsync<NewReviewModal>(editPatient1, parameters);
+        DialogResult? result = await dialog.Result;
+        if (result.Data is not null)
+        {
+            Patient? simplePerson = result.Data as Patient;
+            Console.WriteLine($"Dialog closed by {editPatient1?.Name} ) - Canceled: {result.Cancelled}");
+            
+        }
+        else
+        {
+            Console.WriteLine($"Dialog closed - Canceled: {result.Cancelled}");
+        }
+        await OnInitializedAsync();
+    }
+    DialogData editPatient = new();
+    private async Task OpenDialogFileAsync()
+    {
+        editPatient.currentUser = currentUser;
+        editPatient.Name = patient.Name ?? "";
+        editPatient.AppId = patient.AppId;
+        editPatient.currentRole = currentRole;
+        Console.WriteLine($"Open dialog centered");
+        DialogParameters parameters = new()
+            {
+            Title = $"Add File for {editPatient.Name}",
+            Width = "940px",
+            TrapFocus = _trapFocus1,
+            PreventDismissOnOverlayClick = true,
+            PrimaryAction = null, 
+            SecondaryAction = null,
+            Modal = _modal1,
+            PreventScroll = true
+        };
+        IDialogReference dialog = await dialogService.ShowDialogAsync<UploadPatientReportModal>(editPatient, parameters);
+        DialogResult? result = await dialog.Result;
+        if (result.Data is not null)
+        {
+            Patient? simplePerson = result.Data as Patient;
+            Console.WriteLine($"Dialog closed by {editPatient?.Name} ) - Canceled: {result.Cancelled}");
+        }
+        else
+        {
+            Console.WriteLine($"Dialog closed - Canceled: {result.Cancelled}");
+        }
+        await OnInitializedAsync();
+    }
+    private PatientImages MapPatientToPatientImages(Patient patient)
+    {
+        List<string> imgList = new();
+        foreach(var img in patient.Images)
+        {
+            imgList.Add(img.imgUrl);
+        }
+        var pt = new PatientImages
+        {
+            Id = patient.Id,
+            appId = patient.AppId,
+            Name = patient.Name ?? "",
+            Dob = patient.Dob ?? DateTime.MinValue, // Assuming Dob is of type DateTime
+            Phone = patient.PhoneNew ?? "" ,           // Assuming Phone is of type double
+            DateRegistred = patient.DateRegistered, // Assuming DateRegistred is of type DateTime
+            City = patient.City ?? "",
+            State = patient.State ?? "",
+            MageInjuryFile = patient.MageInjuryFile ?? "",
+            ScanInjuryFile = patient.ScanInjuryFile ?? "",
+            MedReportFile = patient.MedReportFile ?? "",
+            NumOfSurgery = patient.NumOfSurgery ?? "",
+            SummaryOfCondition = patient.SummaryOfCondition ?? "",
+            HospitalsPatient = patient.HospitalsPatient ?? "",
+            Weight = patient.Weight ?? 0 ,
+            Completed = patientService.IsPatientComplete(patient),
+            Reviews = patient.Reviews,
+            AccessRoles = patient.AccessRoles,
+            Images=imgList,
+            Documents = patient.Files
+        };
+        return pt;
+    }
+    private async Task ProcessAllAsync(Patient patient)
+    {
+        if (patient.MageInjuryFile != "" || patient.MageInjuryFile is not null)
+        {
+            await ProcessFileAsync(patient.MageInjuryFile, patient.AppId, pt);
+        }
+        if (patient.ScanInjuryFile != "" || patient.ScanInjuryFile is not null)
+        {
+            await ProcessFileAsync(patient.ScanInjuryFile, patient.AppId, pt);
+        }
+        if (patient.MedReportFile != "" || patient.MedReportFile is not null)
+        {
+            await ProcessFileAsync(patient.MedReportFile, patient.AppId, pt);
+        }
+    }
+    private void LogError(string message, Exception ex)
+    {
+        Console.WriteLine($"{message}: {ex.Message}");
+    }
+    private async Task ProcessUploadedFileAsync(int appId, PatientImages pt, PatientFiles img)
+    {
+        string imageNameWithEx = Path.GetFileName(img.FileUrl);//filename
+        string imagePathWithoutExt = $"/images/{Path.GetFileNameWithoutExtension(imageNameWithEx)}";
+
+        if (Path.HasExtension(imageNameWithEx) && patientService.pdfFileExists(imageNameWithEx))
+        {
+            int num = img.FilePages;
+
+            if (!patientService.ImageFileExists($"{imagePathWithoutExt}-1.png"))
+            {
+                int pages = await pdfImageConverter.ConvertPdfToImages(img.FileUrl, 1, appId);
+                AddImagesToPatient(pt, imagePathWithoutExt, num);
+            }
+            else
+            {
+                AddImagesToPatient(pt, imagePathWithoutExt, num);
+            }
+        } 
+        else if (Path.HasExtension(imageNameWithEx) && patientService.IsImageFile(img.FileUrl))
+        {
+            string imagePath = $"/images/{imageNameWithEx}";
+            pt.Images.Add(imagePath);
+            Console.WriteLine($"Upload checking... pages: {imagePath}");
+        }
+         else if(patientService.IsVideoFile(img.FileUrl)){
+            if(patientService.VideoFileExists($"{Path.GetFileName(img.FileUrl)}")){
+                img.FileUrl = $"/videos/{Path.GetFileName(img.FileUrl)}";
+                pt.Videos.Add(img);
+             
+            } 
+       }else if(patientService.IsDocumentFile(img.FileUrl)){
+            if(patientService.documentFileExists($"{Path.GetFileName(img.FileUrl)}")){
+                img.FileUrl=$"/documents/{Path.GetFileName(img.FileUrl)}";
+             pt.Documents.Add(img);
+             
+            } 
+       }
+       //is other file 
+       else if(patientService.OtherFilesExists($"{Path.GetFileName(img.FileUrl)}")){
+            img.FileUrl = $"/others/{Path.GetFileName(img.FileUrl)}";
+             pt.OtherFiles.Add(img);
+             
+       } 
+       else
+        {
+            img.FileUrl=$"/others/{imageNameWithEx}";
+            pt.OtherFiles.Add(img);
+        }
+    }
+    private async Task ProcessFileAsync(string filePath, int appId, PatientImages pt)
+    {
+       //if pdf
+        if(patientService.isPDF(filePath))
+        {
+            if(patientService.pdfFileExists($"{appId}-{Path.GetFileName(filePath)}"))
+            {
+                if(patientService.ImageFileExists($"{appId}-{Path.GetFileNameWithoutExtension(filePath)}-1.png"))
+                {
+                var pages1 = await patientService.CountPdfPages(Path.Combine("wwwroot","files",$"{appId}-{Path.GetFileName(filePath)}"));
+                int pages =pages1;
+                var fnameWithoutEx = Path.Combine($"/images/{appId}-{Path.GetFileNameWithoutExtension(filePath)}");
+                AddImagesToPatient(pt, fnameWithoutEx, pages);
+                 } else{
+                       int pages = await pdfImageConverter.ConvertPdfToImages($"{appId}-{Path.GetFileName(filePath)}", 1, appId);
+                       Console.WriteLine($"{pages} pages converted");
+                       await ProcessFileAsync(filePath,appId,pt);
+                 }
+            }
+            else{
+                await pdfImageConverter.DownloadPdfFile(filePath, appId);
+                await ProcessFileAsync(filePath,appId,pt);
+
+            }
+        }
+        //is image
+        else if(patientService.IsImageFile(filePath))
+        {
+            if(patientService.ImageFileExists($"{appId}-{Path.GetFileName(filePath)}")){
+                pt.Images.Add($"/images/{appId}-{Path.GetFileName(filePath)}");
+            } else if(patientService.ImageFileExists($"{Path.GetFileName(filePath)}"))
+                {
+                    pt.Images.Add($"{Path.GetFileName(filePath)}");
+                }
+                else{
+                await patientService.DownloadimgFile(filePath, appId);
+                        await ProcessFileAsync(filePath,appId,pt);
+                }
+        }
+        //is video file 
+        else if(patientService.IsVideoFile(filePath))
+        {
+            if(patientService.VideoFileExists($"{appId}-{Path.GetFileName(filePath)}")){
+            PatientFiles pfile = new PatientFiles{
+                AppId= pt.appId,
+                CreatedBy = pt.Name,
+                FileUrl = $"/videos/{appId}-{Path.GetFileName(filePath)}",
+                FileType = "video",
+                FilePages = 1
+            };
+            pt.Videos.Add(pfile);
+            
+            } else {
+                    await patientService.DownloadotherFile(filePath, appId,"videos");
+                            await ProcessFileAsync(filePath,appId,pt);
+
+            }
+        }
+        //is Document file 
+        else if(patientService.IsDocumentFile(filePath)){
+            if(patientService.documentFileExists($"{appId}-{Path.GetFileName(filePath)}")){
+             PatientFiles pfile = new PatientFiles{
+                AppId= pt.appId,
+                CreatedBy = pt.Name,
+                FileUrl = "/documents/"+ $"{appId}-{Path.GetFileName(filePath)}",
+                FileType = "document",
+                FilePages = 1
+            };
+            pt.Documents.Add(pfile);
+            
+            } else {
+                    await patientService.DownloadotherFile(filePath, appId,"documents");
+                            await ProcessFileAsync(filePath,appId,pt);
+
+            }
+        }
+        //is other file 
+        else if(patientService.OtherFilesExists($"{appId}-{Path.GetFileName(filePath)}")){
+             PatientFiles pfile = new PatientFiles{
+                AppId= pt.appId,
+                CreatedBy = pt.Name,
+                FileUrl =$"/others/{appId}-{Path.GetFileName(filePath)}",
+                FileType = "others",
+                FilePages = 1
+            };
+                pt.OtherFiles.Add(pfile);
+                
+        } else  if(!patientService.OtherFilesExists($"{appId}-{Path.GetFileName(filePath)}")){
+                await patientService.DownloadotherFile(filePath, appId,"other");
+                        await ProcessFileAsync(filePath,appId,pt);
+
+        } 
+    }
+    private void AddImagesToPatient(PatientImages pt, string imagePathWithoutExt, int pages)
+    {
+        for (int i = 1; i <= pages; i++)
+        {
+            string imageFilePath = Path.ChangeExtension($"{imagePathWithoutExt}-{i}", "png");
+            pt.Images.Add(imageFilePath);
+        }
+    }
+    protected override async void OnParametersSet()
+    {
+        await LoadPatientData(AppId);
+        StateHasChanged();
+    }
+    
+    private bool IsImageFile(string filePath)
+    {
+        string extension = Path.GetExtension(filePath)?.ToLowerInvariant();
+        string[] validExtensions = { ".bmp", ".gif", ".jpg", ".jpeg", ".jpe", ".jfif", ".png", ".tiff", ".tif", ".raw", ".arw", ".cr2", ".nef", ".orf", ".sr2", ".raf", ".dng", ".svg", ".ai", ".eps", ".pdf", ".webp", ".ico", ".jfif", ".jif", ".jfi", ".jp2", ".jpx", ".j2k", ".j2c", ".heif", ".heic", ".bat", ".bpg", ".indd", ".psd" };
+
+        return !string.IsNullOrWhiteSpace(extension) && validExtensions.Contains(extension);
+    }
+    
+}

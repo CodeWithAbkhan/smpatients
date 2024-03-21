@@ -1,0 +1,37 @@
+{
+  "Files": [
+    {
+      "Id": "E:\\work\\insaaf\\phase-1-2\\smpatients\\smpatients.Client\\bin\\Debug\\net8.0\\wwwroot\\_framework\\blazor.webassembly.js",
+      "PackagePath": "staticwebassets\\_framework\\blazor.webassembly.js"
+    },
+    {
+      "Id": "E:\\work\\insaaf\\phase-1-2\\smpatients\\smpatients.Client\\obj\\Debug\\net8.0\\compressed\\kz19wfym1q.gz",
+      "PackagePath": "staticwebassets\\_framework\\blazor.webassembly.js.gz"
+    },
+    {
+      "Id": "E:\\work\\insaaf\\phase-1-2\\smpatients\\smpatients.Client\\wwwroot\\appsettings.Development.json",
+      "PackagePath": "staticwebassets\\appsettings.Development.json"
+    },
+    {
+      "Id": "E:\\work\\insaaf\\phase-1-2\\smpatients\\smpatients.Client\\wwwroot\\appsettings.json",
+      "PackagePath": "staticwebassets\\appsettings.json"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.smpatients.Client.props",
+      "PackagePath": "build\\smpatients.Client.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.smpatients.Client.props",
+      "PackagePath": "buildMultiTargeting\\smpatients.Client.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildTransitive.smpatients.Client.props",
+      "PackagePath": "buildTransitive\\smpatients.Client.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.smpatients.Client.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

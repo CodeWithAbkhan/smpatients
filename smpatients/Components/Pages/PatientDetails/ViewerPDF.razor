@@ -1,0 +1,131 @@
+﻿@inject PatientServices patientService
+@using System.Net.Http
+@inject HttpClient httpClient
+<div class="modal fade show d-block" tabindex="-1" role="dialog">
+    <div class="modal-backdrop fade show" @onclick="Cancel"></div>
+    <div class="modal-dialog" style="z-index: 1050">
+        <!-- Pop it above the backdrop -->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Modal title</h5>
+                <button type="button" class="close" aria-label="Close" @onclick="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(FileBase64))
+                {
+                <iframe src="@FileBase64" width="800" height="700" frameborder="0"></iframe><p>aaa</p>
+                }
+                else
+                {
+                    <p>@eventLog</p><p>aa</p>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="Close">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+    @* <p>@eventLog</p> *@
+
+
+    
+
+
+@code {
+    [CascadingParameter] BlazoredModalInstance BlazoredModal { get; set; } = default!;
+    [Parameter] public DialogData? DialogData { get; set; }
+    private string FileType { get; set; }
+    private string FileBase64 { get; set; }
+    private string eventLog { get; set; }
+
+    private async Task Close() => await BlazoredModal.CloseAsync(ModalResult.Ok(true));
+    private async Task Cancel() => await BlazoredModal.CancelAsync();
+    private Dictionary<string, string> mimeTypes;
+
+    protected override void OnInitialized()
+    {
+        // Define MIME types for each file type
+        mimeTypes = new Dictionary<string, string>
+        {
+            { ".pdf", "application/pdf" },
+            { ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+            { ".xls", "application/vnd.ms-excel" },
+            { ".csv", "text/csv" },
+            { ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+            { ".doc", "application/msword" },
+            { ".txt", "text/plain" },
+            { ".ppt", "application/vnd.ms-powerpoint" },
+            { ".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+            { ".jpg", "image/jpeg" },  // JPEG image
+            { ".jpeg", "image/jpeg" }, // JPEG image
+            { ".png", "image/png" },    // PNG image
+            { ".gif", "image/gif" },    // GIF image
+            { ".bmp", "image/bmp" }     // BMP image
+        };
+
+        // Convert file to base64 and store it in FileBase64 property
+        ConvertFileToBase64(DialogData.Name);
+    }
+    private async Task ConvertFileToBase64(string fileUrl)
+    {
+        try
+        {
+            if (Uri.TryCreate($"https://localhost:6070/{fileUrl}", UriKind.Absolute, out Uri uri))
+            {
+                var response = await httpClient.GetAsync(uri);
+                if (response.IsSuccessStatusCode)
+                {
+                    byte[] fileBytes = await response.Content.ReadAsByteArrayAsync();
+                    FileType = Path.GetExtension(fileUrl); // Get file extension
+                    
+                    if (mimeTypes.ContainsKey(FileType))
+                    {
+                        FileBase64 = $"data:{mimeTypes[FileType]};base64,{Convert.ToBase64String(fileBytes)}";
+                        Console.WriteLine(FileBase64);
+                    }
+                    else
+                    {
+                        eventLog = "Unsupported file type.";
+                    }
+                }
+                else
+                {
+                    eventLog = $"Error: {response.StatusCode} - {response.ReasonPhrase}";
+                }
+            }
+            else
+            {
+                eventLog = "Error: Invalid file URL.";
+            }
+        }
+        catch (Exception ex)
+        {
+            eventLog = $"Error: {ex.Message}";
+        }
+    }
+     private async Task<string> DetermineLocalFilePath(string fileUrl)
+    {
+        if (patientService == null || string.IsNullOrEmpty(fileUrl))
+            return null;
+
+        string localFilePath = "";
+        if (patientService.isPDF(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "files", $"{Path.GetFileName(fileUrl)}");
+        else if (patientService.IsDocumentFile(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "documents", $"{Path.GetFileName(fileUrl)}");
+        else if (patientService.IsVideoFile(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "videos", $"{Path.GetFileName(fileUrl)}");
+        else if (patientService.IsImageFile(fileUrl))
+            localFilePath = Path.Combine("wwwroot", "images", $"{Path.GetFileName(fileUrl)}");
+        else
+            localFilePath = Path.Combine("wwwroot", "others", $"{Path.GetFileName(fileUrl)}");
+
+        Console.WriteLine($"LocalFilePath: {localFilePath}");
+        return localFilePath;
+    }
+
+
+}

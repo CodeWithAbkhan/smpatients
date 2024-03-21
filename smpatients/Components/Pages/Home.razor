@@ -1,0 +1,342 @@
+﻿@page "/"
+@inject IDialogService DialogService
+@inject PatientServices patientService
+@inject PdfImageConverter pdfImageConverter
+@inject BotApiService botApiService
+@inject IToastService toastService
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@using smpatients.Components.Pages.PatientDetails
+@inject AuthenticationStateProvider authenticationStateProvider
+@* @rendermode InteractiveServer *@
+@attribute [Authorize]
+@attribute [StreamRendering]
+@rendermode @(new InteractiveServerRenderMode(prerender :false))
+@* StrokeWidth="4"  *@
+@* FillColor="#459EBF" *@
+<PageTitle>Home</PageTitle>
+  <smpatients.Components.Layout.MainLayoutWrapper >
+    <div class="page-header mt-0">
+    <h3 class="page-title">
+      <span class="page-title-icon bg-gradient-primary text-white me-2">
+        <i class="mdi mdi-buffer"></i>
+      </span> Patient Details
+    </h3>
+    <nav aria-label="breadcrumb">
+      @* <ul class="breadcrumb">
+        <li class="breadcrumb-item active" aria-current="page">
+          <span></span>Overview <i class="mdi mdi-alert-circle-outline icon-sm text-primary align-middle"></i>
+        </li>
+      </ul> *@
+    </nav>
+  </div>
+@if (!itemsQueryable.Any())
+{
+    <!-- Display loading spinner if patient data is not available -->
+    <div class="container">
+        <div class="row">
+            <FluentProgressRing></FluentProgressRing>
+            <p><em> Please Wait... </em></p>
+        </div>
+    </div>
+}
+else if (itemsQueryable.Count()==0)
+{
+     <p><em>No record!</em></p>
+}
+else
+{
+    <!-- Fluent Design System layout for displaying patient data -->
+   
+        <div class="container">
+            <div class="row">
+                <!-- Patient details section -->
+                  <div class="mb-2 px-0">
+                        @if (AppId == 0)
+                        {
+                            <!-- Display a message to select a record -->
+                            <p class="text-muted small">Select a record to load...</p>
+                        }
+                        else
+                        {
+                        <!-- Display the PatientMainCard component with the selected patient's data -->
+                        <PatientMainCard AppId="@AppId"
+                        currentUser="@currentUser"
+                        currentRole="@currentRole"
+                        @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
+                        }
+                    </div>
+               
+            </div>
+
+            <div class="row">
+                <!-- Search and Refresh controls -->
+                
+                <div class="card">
+                    <div class="card-body p-3">
+                    <div class="row">
+                        <div class="col-4">
+                            <!-- Dropdown for selecting search criteria -->
+                            <select class="form-select form-control  form-control-sm" @bind="selectedSearchCriteria">
+                                <option value="Name">Name</option>
+                                <option value="appId">App ID</option>
+                                <option value="Phone">Telephone</option>
+                                <option value="Location">Location</option>
+                                <option value="Roles">Roles</option>
+                                <!-- <option value="Classification">Classification</option> -->
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <!-- Search input -->
+                            <div class="input-group mb-2">
+                                <input type="search" class="form-control form-control-sm" autofocus @bind="nameFilter" @bind:event="oninput"
+                                       placeholder="Enter search term..." />
+                            </div>
+                        </div>
+                        <div class="col-2">
+                            <!-- Refresh button (visible only to admin users) -->
+                            <div class="input-group mb-2">
+                                <AuthorizeView Policy="admin">
+                                    <button type="button" class="btn btn-outline-info btn-sm btn-icon-text" disabled="@RefreshLoad"  onclick="@(async () => await RefreshDataApiCallAsync())">
+                                        @if (RefreshLoad)
+                                        {
+                                            <div class="d-flex">
+                                            <FluentProgressRing Width="16px" Style="color:#fff"></FluentProgressRing> <span> Refresh</span></div>
+                                        }
+                                        else
+                                        {
+                                            <div class="d-flex"><i class="mdi mdi-reload btn-icon-prepend"></i> <span>Refresh</span></div>
+                                        }
+                                    </button>
+                                </AuthorizeView>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                    @if (!FilteredPatients.Any())
+                    {
+                        <!-- Display loading spinner while filtering -->
+                        <FluentProgressRing></FluentProgressRing>
+                        @if(FilteredPatients.Count()==0)
+                        {
+                            <p>No record in access!</p>
+                        }
+                    }
+                    else
+                    {
+                    <!-- Display FluentDataGrid with filtered patient data -->
+                    <div style="overflow-x: auto; max-height: 500px;">
+                        <FluentDataGrid Items="@FilteredPatients" class="table table-striped w-full"
+                         GridTemplateColumns="1fr 0.6fr 0.6fr "
+                          ResizableColumns=true
+                         Pagination="@pagination">
+                            <!-- View button to show patient details -->
+                            <div style="display: flex; overflow-x: none; sticky; top: 0;">
+                                <TemplateColumn  Title="Details" Style="min-width:120px;" Context="context">
+                                <button class="btn btn-inverse-info btn-sm btn-rounded btn-icon-text gap-1"  @onclick="@(async () => await Select(context))">
+                                    <span class="mdi mdi-file-check "></span> Show</button>
+                                </TemplateColumn>
+                            @if (currentRole == "admin")
+                            {
+                              
+                                <TemplateColumn  Style="min-width: 60px;" Context="context">
+                                <a class="btn btn-inverse-info btn-sm btn-rounded btn-icon-text" href="@($"patients/edit?id={context.Id}")">
+                                <span class="mdi mdi mdi-pen "></span></a> 
+                            
+                                </TemplateColumn>
+                                <TemplateColumn  Style="min-width: 70px;" Context="context">
+                                    <a class="btn btn-inverse-info btn-sm btn-rounded btn-icon-text" href="@($"patients/delete?id={context.Id}")">
+                                    <i class="mdi mdi-delete-forever "></i></a>
+                                </TemplateColumn>
+                            }
+                            </div>
+                                <div style="overflow-x: auto; max-height: 500px;">
+                            <!-- Columns for various patient details -->
+                            <PropertyColumn Property="@(c => c.AppId)" Title="App ID" Sortable="true" Style="min-width: 130px;" />
+                            <PropertyColumn Property="@(c => c.Name)" Title="Name" Sortable="true" Style="min-width: 250px;" />
+                            <PropertyColumn Property="@(c => c.Completed)" Title="Completed" Sortable="true" Style="min-width: 200px;" />
+                            <PropertyColumn Property="@(c => c.PhoneNew)" Title="Phone" Sortable="false" Style="min-width: 200px;" />
+                            <PropertyColumn Property="@(c => c.Dob.HasValue ? c.Dob.Value.ToString("dd MMM yyyy") : null)" Title="DOB" Sortable="true" Style="min-width: 120px;" />
+                            <PropertyColumn Property="@(c => c.City)" Title="City" Sortable="true" Style="min-width: 150px;" />
+                            <PropertyColumn Property="@(c => c.State)" Title="State" Sortable="true" Style="min-width: 100px;" />
+                            <PropertyColumn Property="@(c => c.HospitalsPatient)" Title="HospitalsPatient" Sortable="true" Style="min-width: 200px;" />
+                            <PropertyColumn Property="@(c => c.NumOfSurgery)" Title="NumOfSurgery" Sortable="true" Style="min-width: 100px;" />
+                            <PropertyColumn Property="@(c => c.MoreInfo)" Title="MoreInfo" Sortable="true" Style="min-width: 100px;" />
+                            <PropertyColumn Property="@(c => c.MedicalConditions)" Title="MedicalConditions" Sortable="true" Style="min-width: 150px;" />
+                            <PropertyColumn Property="@(c => c.Weight)" Title="Weight" Sortable="true" Style="min-width: 100px;" />
+                            <PropertyColumn Property="@(c => c.Height)" Title="Height" Sortable="true" Style="min-width: 100px;" />
+                        </div>
+                        </FluentDataGrid>
+                    </div>
+                    <!-- Paginator for paging through patient data -->
+                    <FluentPaginator State="@pagination" />
+                    }
+                    </div>
+                    
+                </div>
+                </div>
+            </div>
+        </div>
+        
+    <!-- Add some margin at the bottom -->
+    <div class="mb-5"></div>
+}
+<FluentDialogProvider />
+
+</smpatients.Components.Layout.MainLayoutWrapper>
+@code {
+    // Define pagination state
+    PaginationState pagination = new PaginationState { ItemsPerPage = 4};
+
+    // Initialize an empty IQueryable for patients
+    IQueryable<Patient> itemsQueryable = Enumerable.Empty<Patient>().AsQueryable();
+
+    // Store the current user's role, name filter, and selected search criteria
+    private string currentRole = string.Empty;
+    IEnumerable<Patient> listPatients { get; set; } = Enumerable.Empty<Patient>();
+    string nameFilter = string.Empty;
+    string currentUser = string.Empty;
+    string selectedSearchCriteria = "Name";
+
+    // Initialize component and fetch patient data based on user's role
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {        
+            // Get the current authentication state
+            var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            // Get the current user's name and roles
+            currentUser = user?.Identity?.Name;
+            var currentRoles = user?.FindAll(ClaimTypes.Role)?.Select(c => c.Value).ToList() ?? new List<string>();
+                 
+            // Determine the current user's role
+            currentRole = currentRoles.Contains("admin") ? "admin" : currentRoles.FirstOrDefault() ?? "";
+                
+            // Fetch patient list based on the user's role
+            var patList = await patientService.GetPatientsByRoleAsync(currentRole);
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(TimeSpan.FromSeconds(1));    
+            if (patList != null)
+            {
+                // Set the IQueryable for patient data
+                itemsQueryable = patList.AsQueryable();
+            }
+            else
+            {
+                // Handle the case where patient list is null
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle initialization error
+            Console.WriteLine("Initialization error: " + ex.Message);
+        }
+    }
+
+    // Method to add images to a patient
+    private void AddImagesToPatient(PatientImages pt, string imagePathWithoutExt, int pages)
+    {
+        for (int i = 1; i <= pages; i++)
+        {
+            string imageFilePath = Path.ChangeExtension($"{imagePathWithoutExt}-{i}", "png");
+            pt.Images.Add(imageFilePath);
+        }
+    }
+
+    // Method to trigger data refresh from the API
+    bool RefreshLoad = false;
+    private async Task RefreshDataApiCallAsync()
+    {
+        RefreshLoad = true;
+        // Fetch and insert patients from the API
+        bool success = await botApiService.FetchAndInsertPatientsAsync();
+
+        if (success)
+        {
+            // Display success message and refresh the component
+            toastService.ShowSuccess("Data successfully refreshed!");
+            StateHasChanged();
+            await OnInitializedAsync();
+        }
+        else
+        {
+            // Display warning message for unsuccessful refresh
+            toastService.ShowWarning("Refresh unsuccessful!");
+        }
+        RefreshLoad = false;
+    }
+
+    // Variables for patient selection
+    int AppId = 0;
+
+    // Method to select a patient and load data
+    async Task Select(Patient c)
+    {
+        AppId =0;
+        StateHasChanged();
+        AppId = c.AppId;
+    }
+
+    // FilteredPatients property to apply filtering based on nameFilter and selectedSearchCriteria
+    IQueryable<Patient> FilteredPatients
+    {
+        get
+        {
+            var result = itemsQueryable;
+
+            if (result != null && !string.IsNullOrEmpty(nameFilter))
+            {
+                switch (selectedSearchCriteria)
+                {
+                    case "Name":
+                        // Filter by patient name
+                        result = result.AsEnumerable()?.Where(c => c?.Name?.Contains(nameFilter, StringComparison.CurrentCultureIgnoreCase) == true)?.AsQueryable();
+                        break;
+                   case "appId":
+                        // Filter by application ID
+                        int appFilter;
+                        if (int.TryParse(nameFilter, out appFilter))
+                        {
+                            result = result.Where(c => c.AppId.ToString().Contains(nameFilter));
+                        }
+                        else
+                        {
+                            // Handle the case where nameFilter is not a valid integer
+                            // For example, you can return an empty result or display an error message
+                            // result = Enumerable.Empty<Patient>().AsQueryable();
+                        }
+                        break;
+                  case "Phone":
+                        // Filter by phone number
+                        result = result.Where(c => c.PhoneNew != null && c.PhoneNew.Contains(nameFilter));
+                        break;
+
+                    case "Roles":
+                        // Filter by patient name
+                        result = result.Where(p => p.AccessRoles.Any(r => r.Role.Contains(nameFilter, StringComparison.CurrentCultureIgnoreCase)));
+                        break;
+                    case "Location":
+                        // Filter by city/location
+                        result = result.AsEnumerable()?.Where(c => c?.City?.Contains(nameFilter, StringComparison.CurrentCultureIgnoreCase) == true)?.AsQueryable();
+                        break;
+                    case "Classification":
+                        // Filter by classification (reviewed out for now)
+                        // result = result.AsEnumerable()?.Where(c => c.C.ToString() == nameFilter)?.AsQueryable();
+                        break;
+                    default:
+                        // Handle default case or show an error
+                        break;
+                }
+            }
+
+            return result ?? Enumerable.Empty<Patient>().AsQueryable();
+        }
+    }
+
+    // Variables for modal and focus trapping
+    @* private bool _trapFocus = true;
+    private bool _modal = true; *@
+}

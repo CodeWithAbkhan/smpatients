@@ -1,0 +1,97 @@
+﻿@implements IDialogContentComponent<DialogData>
+@inject PatientServices patientService
+@inject IToastService toastService
+
+<!-- FluentDialogHeader with icon and title -->
+<FluentDialogHeader ShowDismiss="true">
+    <FluentStack VerticalAlignment="VerticalAlignment.Center">
+        <FluentIcon Value="@(new Icons.Regular.Size24.WindowApps())" />
+        <FluentLabel Typo="Typography.PaneHeader">
+            @Dialog.Instance.Parameters.Title
+        </FluentLabel>
+    </FluentStack>
+</FluentDialogHeader>
+
+<!-- FluentDialogBody containing an EditForm for adding Reviews -->
+<FluentDialogBody>
+    <div class="row mb-3">
+        <div class="col-12">
+            <!-- EditForm for adding Reviews -->
+            <EditForm Model="@ContentCom" EditContext="editContext" FormName="editPatient" OnValidSubmit="@AddreviewAsync" novalidate>
+                <DataAnnotationsValidator />
+                <FluentValidationSummary />
+                <!-- FluentTextArea for entering Reviews -->
+                <FluentTextArea @bind-Value="@ContentCom.ReviewsContent"
+                                Rows="6"
+                                Placeholder="Write Your review Here.."
+                                style="width: 100%;"></FluentTextArea>
+            </EditForm>
+        </div>
+    </div>
+</FluentDialogBody>
+
+<!-- FluentDialogFooter with Save and Cancel buttons -->
+<FluentDialogFooter>
+    <FluentButton Appearance="Appearance.Accent" @onclick="AddreviewAsync">Save review</FluentButton>
+    <FluentButton Appearance="Appearance.Stealth" @onclick="CancelAsync">Cancel</FluentButton>
+</FluentDialogFooter>
+
+@code {
+    // Parameters for the dialog content
+    [Parameter]
+    public DialogData Content { get; set; } = new DialogData(); 
+    
+    [SupplyParameterFromForm]
+    public Reviews ContentCom { get; set; } = new Reviews();
+  
+    [CascadingParameter]
+    public FluentDialog Dialog { get; set; } = default!;
+    
+    // EditContext for the EditForm
+    private EditContext editContext = default!;
+    
+    // Loading indicator
+    private bool IsLoading { get; set; } = false;
+
+    // Method to cancel and close the dialog
+    private async Task CancelAsync()
+    {
+        if (Dialog != null)
+            await Dialog.CancelAsync();
+    }
+
+    // Method to add a review
+    private async Task AddreviewAsync()
+    {
+        try
+        {
+            // Check if the review is not null
+            if (ContentCom.ReviewsContent != null)
+            {
+                IsLoading = true;
+
+                // Call the patient service to add the review
+                await patientService.Addreview(ContentCom.ReviewsContent, Content.AppId, Content.currentUser);
+
+                toastService.ShowSuccess("review updated successfully");
+                IsLoading = false;
+
+                // Close the dialog
+                await Dialog.CancelAsync();
+            }
+            else
+            {
+                toastService.ShowInfo("review is empty!");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle and log the exception
+            toastService.ShowError($"Error updating review: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+}

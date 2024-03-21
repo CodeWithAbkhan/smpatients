@@ -1,0 +1,101 @@
+﻿@inject IDialogService dialogService
+@inject PatientServices patientServices
+@if(!pt.Files.Any())
+{
+    
+}
+else
+{
+<div class="card p-0 my-0 bg-gradient-info border-top-1">
+    <div class="card-body m-0 p-0 border-0">
+    <div class="d-flex  ">
+        <span class="m-2 me-2">
+            <i class="mdi mdi-file-word-box"></i>
+            Documents (s):</span>
+    </div>
+    <div class="border  py-2 bg-light rounded" style="max-height: 310px; overflow-y: auto;">
+    @foreach (var file in pt.Files)
+        {
+            if(file.FileType!="video")
+            {
+            <div class="card p-0 m-2 shadow-sm">
+                <div class="card-body p-2 m-0 ">
+                    <div class="d-flex">
+                        <div class="d-flex align-items-center me-3 text-muted small font-weight-light">
+                            <i class="mdi mdi-account-outline icon-sm me-2"></i>
+                            <span>@file?.CreatedBy?.Split('@')[0]</span>
+                        </div>
+                        <div class="d-flex align-items-center text-muted small font-weight-light">
+                            <i class="mdi mdi-clock icon-sm me-2"></i>
+                            <span> @(@file?.CreatedAt.ToString("dd, MMM, yyyy HH:mm"))</span>
+                        </div>
+                    </div>
+                    <div class="d-flex pt-1 gap-2 justify-content-between mx-auto align-items-center">
+                            <p class="d-flex pt-1 mb-0 small" style="white-space: pre-line;">
+                                <span> @(Path.GetFileName(file.FileUrl).Replace(pt.AppId + "-", ""))</span>
+                            </p>
+                        <div class="d-flex align-items-center gap-1">
+                        <NavLink href="@file.FileUrl" download="@file.FileUrl" class="btn btn-outline btn-sm btn-rounded btn-icon-text gap-1">
+                            <i class="mdi mdi-arrow-down-bold-circle"></i> Download
+                        </NavLink>
+                       
+                            <button onclick="@(async () => await OpenDialogPDFViewerAsync(file.FileUrl))"
+                                class="btn btn-outline-info btn-sm btn-rounded btn-icon-text gap-1">
+                                <i class="mdi mdi mdi-file-pdf"></i> Open
+                            </button>
+                           
+                        @if (currentRole == "admin")
+                        {
+                            <NavLink href="@($"patientfiles/delete?id={file.Id}")" class="btn btn-outline btn-sm btn-rounded btn-icon-text">
+                                <i class="mdi mdi-delete icon-sm me-2"></i>
+                            </NavLink>
+                        }
+                    </div>
+                    </div>
+                </div>
+            </div>
+            }
+        }
+    
+    </div>
+</div>
+</div>
+}
+@code {
+    [Parameter] public Patient pt { get; set; } = new();
+    [Parameter] public string currentRole { get; set; } = default!;
+    private bool _trapFocus = true;
+    private bool _modal = true;
+   
+    DialogData PdfData = new();
+    private async Task OpenDialogPDFViewerAsync(string PdfUrl)
+    {
+        PdfData.Name = PdfUrl;
+        PdfData.AppId = pt.AppId;
+        PdfData.currentUser = "";
+        PdfData.currentRole = "";
+        DialogParameters parameters = new()
+            {
+            Title = $"File of Patient {PdfData.currentUser}",
+            PrimaryAction = "", 
+            SecondaryAction = "Close",
+            Width = "1280px",
+            TrapFocus = _trapFocus,
+            Modal = _modal,
+            PreventScroll = true
+        };
+        IDialogReference dialog = await dialogService.ShowDialogAsync<PdfViewerModal>(PdfData, parameters);
+        DialogResult? result = await dialog.Result;
+        if (result.Data is not null)
+        {
+            Patient? simplePerson = result.Data as Patient;
+            Console.WriteLine($"Dialog closed by {PdfData?.Name} ) - Canceled: {result.Cancelled}");
+
+        }
+        else
+        {
+            Console.WriteLine($"Dialog closed - Canceled: {result.Cancelled}");
+        }
+        await OnInitializedAsync();
+    }
+}

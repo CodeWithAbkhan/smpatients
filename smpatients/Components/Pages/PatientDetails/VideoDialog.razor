@@ -1,0 +1,40 @@
+﻿@implements IDialogContentComponent<DialogData>
+@using Blazored.Video.Support
+@using Blazored.Video
+
+<FluentDialogHeader ShowDismiss="true"></FluentDialogHeader>
+<FluentDialogBody> 
+    
+    <BlazoredVideo width="910" height="700"  controls="controls">
+       
+        <source src="@url1"  width="940" height="690"  type="video/mp4" />
+      
+    </BlazoredVideo> 
+   
+     <FluentDialogFooter></FluentDialogFooter>
+</FluentDialogBody>
+
+@code {
+    [Parameter]
+    public DialogData Content { get; set; } = new DialogData();
+    public FluentDialog Dialog { get; set; }
+    string url1 = "";
+    protected override async Task OnInitializedAsync()
+    {
+       
+        url1 =Content.Name;
+        StateHasChanged();
+    }
+    void OnPlay(VideoState state)
+    {
+       var url = state.CurrentSrc;
+        // do something with this
+    }
+
+    void OnTimeUpdate(VideoState state)
+    {
+        var url = state.CurrentSrc;
+        var currentTime = state.CurrentTime;
+        // do something with this
+    }
+}

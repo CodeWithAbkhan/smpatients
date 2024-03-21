@@ -1,0 +1,413 @@
+﻿@implements IDialogContentComponent<DialogData>
+@inject PatientServices patientService
+@inject IToastService toastService
+@inject PdfImageConverter pdfImageConverter
+@attribute [StreamRendering]
+<FluentDialogHeader ShowDismiss="true">
+    <FluentStack VerticalAlignment="VerticalAlignment.Center">
+        <FluentIcon Value="@(new Icons.Regular.Size24.WindowApps())" />
+        <FluentLabel Typo="Typography.PaneHeader">
+            @Dialog.Instance.Parameters.Title
+        </FluentLabel>
+    </FluentStack>
+</FluentDialogHeader>
+<!-- Body --> <div class="row">
+<FluentDialogBody>
+    <EditForm Model="@pfile" FormName="editPatient" OnValidSubmit="@AddPatientFileAsync" novalidate>
+        <DataAnnotationsValidator />
+        <FluentValidationSummary />
+        <FluentStack Orientation="Orientation.Vertical">
+            <div class="col-12">
+                <div class="border-dash"></div>
+                <FluentInputFile @ref="@myFileByBuffer" AnchorId="MyUploadBuffer"
+                    DragDropZoneVisible="true"
+                    Mode="InputFileMode.Buffer" Multiple="true" 
+                    Accept=".pdf,.txt, video/*, image/*,"
+                    OnProgressChange="@OnProgressChangeAsync"
+                    MaximumFileSize="@(500 * 1024 * 1024)"
+                    OnCompleted="@OnCompleted"  Style="height: 300px; border: 1px dashed var(--accent-fill-rest);" >
+                  <ChildContent>
+                    <label for="MyUploadBuffer" Id="MyUploadBuffer1">
+                     <i class="mdi mdi-arrow-up"></i>
+                    </label>
+                    <div>
+                        Drag file(s) here you wish to upload,
+                        or  <label for="MyUploadBuffer" Id="MyUploadBuffer">browse</label>
+                        for them<span style="color: red;">*</span>.
+                        <br />
+                        <em>Multiple Files, allowed.</em>
+                        <br />
+                        <em class="my-2 text-success">@isReady</em>
+                    </div>
+                </ChildContent>    
+                </FluentInputFile>
+                @* <FluentProgress Visible="@(progressPercent > 0)"
+                    Min="0" Max="100" Value="@progressPercent" />
+                <FluentLabel Alignment="HorizontalAlignment.Center"> *@
+                    @* @progressTitle
+                </FluentLabel> *@
+                @* <FluentButton Appearance="Appearance.Accent" style="width: 100%;" Id="MyUploadBuffer">
+                    Upload files
+                </FluentButton> *@
+             </div>  
+             <div class="row ">
+              <div class="col-12 justify-content-between">          
+             @if(IsLoadingFile ==true || IsUploadInProgress==true || IsSavingFile==true)
+             {
+                <FluentProgressRing></FluentProgressRing>
+             }else{
+                <button class="btn btn-outline-info btn-sm btn-icon-text gap-1" style="width: 100%;" 
+                    Disabled="@(IsLoadingFile ==true || IsUploadInProgress==true || IsSavingFile==true)"
+                    type="submit">Save File</button>
+             }     
+              </div>
+            </div>   
+            @* <FluentDialogFooter class="row">
+                @if (Content.currentRole == "admin" && existingFiles.Count > 0)
+                {
+                    <div class="row">
+                        <table class="table table-rounded table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th scope="col">File URL</th>
+                                    <th scope="col">uploaded By</th>
+                                    <th scope="col">Date</th>
+                                    <th scope="col">Actions</th>
+                                     @if (Content.currentRole == "admin")
+                                        {
+                                    <th scope="col">Action</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var pf in existingFiles)
+                                {
+                                    <tr>
+                                        @{
+                                        var fileName = Path.GetFileName(pf.FileUrl);
+                                        }
+                                        <td>@fileName</td>
+                                        <td>@pf.CreatedBy?.Split('@')[0]?.ToUpperInvariant()</td>
+                                        <td>@pf.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                        <td>
+                                            <a href="@pf.FileUrl" download="@fileName" class="link">Download</a>
+                                            <!-- Add additional actions/buttons as needed -->
+                                        </td>
+                                        @if (Content.currentRole == "admin")
+                                        {
+                                        <td>
+                                            <NavLink href="@($"patientfiles/delete?id={pf.Id}")" class="d-flex pt-1 mb-0 small" style="white-space: pre-line;">
+                                            <i class="mdi mdi-delete icon-sm me-2"></i>
+                                            <span>delete</span>
+                                        </NavLink>
+                                        </td>
+                                        }   
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+            </FluentDialogFooter> *@
+        </FluentStack>
+    </EditForm>
+</FluentDialogBody>
+
+ </div>  
+@code {
+
+    [Parameter]
+    public DialogData Content { get; set; } = new();
+    [SupplyParameterFromForm]
+    public PatientFiles pfile { get; set; } = new(); // Changed from property to field for better initialization
+    [CascadingParameter]
+    public FluentDialog Dialog { get; set; }
+    FluentInputFile myFileByBuffer = default!;
+    int? progressPercent;
+    string progressTitle = String.Empty;
+    bool IsCanceled;
+    bool IsLoadingFile = false;
+    bool IsUploadInProgress = false;
+    List<PatientFiles> existingFiles { get; set; } = new List<PatientFiles>();
+    List<PatientFiles> patientFilesList {get; set;}= new List<PatientFiles>();
+    private async Task CancelAsync()
+    {
+        await Dialog.CancelAsync();
+    }
+    // Selected file type
+    private string SelectedFileType { get; set; } = "";
+    Dictionary<int, string> Files = new();
+    async Task OnProgressChangeAsync(FluentInputFileEventArgs file)
+    {
+        IsLoadingFile = true;
+        IsUploadInProgress = true; 
+        progressPercent = file.ProgressPercent;
+        progressTitle = file.ProgressTitle;
+        // To cancel?
+        file.IsCancelled = IsCanceled;
+        // New file
+        if (!Files.ContainsKey(file.Index))
+        {
+            try
+            {
+                var tempPath = Path.Combine(Path.GetTempPath(), "smpatients", Guid.NewGuid().ToString());
+                if (!Directory.Exists(tempPath))
+                {
+                    Directory.CreateDirectory(tempPath);
+                }
+
+                var localFile = Path.Combine(tempPath, file.Name);
+                Files.Add(file.Index, localFile);
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                LogError($"Error creating temp file: {ex.Message}");
+            }
+        }
+        // Write to the FileStream
+        try
+        {
+            await file.Buffer.AppendToFileAsync(Files[file.Index]);
+        }
+        catch (Exception ex)
+        {
+            // Log the error
+            LogError($"Error appending to file: {ex.Message}");
+        }
+        // Reset the flag when upload is completed
+        if (file.ProgressPercent == 100)
+        {
+            IsUploadInProgress = false;
+        }
+    }
+    void LogError(string errorMessage)
+    {
+        // Implement your logging mechanism here, e.g., using a logging library
+        // Example with Console.WriteLine:
+        Console.WriteLine($"Error: {errorMessage}");
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        existingFiles = await patientService.GetFilesByPatientAsync(Content.AppId);
+    }
+    bool IsSavingFile = false;
+    private async Task AddPatientFileAsync()
+    {
+        bool IsSavingFile = true;
+         IsLoadingFile= true;
+        try
+        {
+            if (patientFilesList == null || !patientFilesList.Any())
+            {
+                // Show info message
+                toastService.ShowInfo("Please Select a File.");
+            }
+            else
+            {
+                var imagesList = new List<string>();
+                foreach (var patientFile in patientFilesList)
+                {
+                    
+                    await Task.Delay(TimeSpan.FromSeconds(1));
+                    imagesList = await ProcessUploadedFileAsync(Content.AppId, patientFile);
+                    
+                    await patientService.AddFileByPatientAsync(Content.AppId, patientFile,imagesList);
+                }
+                // Show success message
+                toastService.ShowSuccess("Files added successfully. !");
+            }
+
+        }
+        catch (Exception ex)
+        {
+            // Handle exceptions or show an error message
+            toastService.ShowError("Error adding the files.");
+            // Log the exception
+            Console.WriteLine($"Error adding files: {ex.Message}");
+        }
+        finally
+        {
+            IsSavingFile = false;
+           IsLoadingFile= false;
+        }
+        IsSavingFile = false;
+           IsLoadingFile= false;
+    }
+    private string isReady = "";
+    async Task OnCompleted(IEnumerable<FluentInputFileEventArgs> files)
+    {
+        isReady = "File(s) are ready to Save!, Hit click to Save files";
+        IsLoadingFile= true;
+        try
+        {
+            progressPercent = myFileByBuffer!.ProgressPercent;
+            progressTitle = myFileByBuffer!.ProgressTitle;
+            foreach (var file in files)
+            {
+                var randomString = GenerateRandomString(5); // Generate a random string of length 5
+                var uniqueFileName = $"{Content.AppId}-{randomString}-{file.Name}";
+                if (patientService.isPDF(Files[file.Index]))
+                {
+                    try
+                    {
+                        var destinationPath = Path.Combine("wwwroot", "files", uniqueFileName);
+                        await patientService.SaveFileToDirectoryAsync(Files[file.Index], destinationPath);
+                        var pages1 = await patientService.CountPdfPages(Files[file.Index]);
+                        int pages = pages1;
+                        var patientFile = new PatientFiles
+                        {
+                            FileType = "file",
+                            FileUrl = $"/files/{uniqueFileName}",
+                            CreatedBy = Content.currentUser,
+                            AppId = Content.AppId,
+                            FilePages = pages
+                        };
+                        patientFilesList.Add(patientFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error saving PDF file: {ex.Message}");
+                    }
+                }
+                else if (patientService.IsImageFile(Files[file.Index]))
+                {
+                    try
+                    {
+                        var destinationPath = Path.Combine("wwwroot", "images", uniqueFileName);
+                        await patientService.SaveFileToDirectoryAsync(Files[file.Index], destinationPath);
+                        var patientFile = new PatientFiles
+                        {
+                            FileType = "image",
+                            FileUrl = $"/images/{uniqueFileName}",
+                            CreatedBy = Content.currentUser,
+                            AppId = Content.AppId,
+                            FilePages = 1
+                        };
+                        patientFilesList.Add(patientFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error saving image file: {ex.Message}");
+                    }
+                }
+                else if (patientService.IsDocumentFile(Files[file.Index]))
+                {
+                    try
+                    {
+                        var destinationPath = Path.Combine("wwwroot", "documents", uniqueFileName);
+                        await patientService.SaveFileToDirectoryAsync(Files[file.Index], destinationPath);
+                        var patientFile = new PatientFiles
+                        {
+                            FileType = "document",
+                            FileUrl = $"/documents/{uniqueFileName}",
+                            CreatedBy = Content.currentUser,
+                            AppId = Content.AppId,
+                            FilePages = 1
+                        };
+                        patientFilesList.Add(patientFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error saving document file: {ex.Message}");
+                    }
+                }
+                else if (patientService.IsVideoFile(Files[file.Index]))
+                {
+                    try
+                    {
+                        var destinationPath = Path.Combine("wwwroot", "videos", uniqueFileName);
+                        await patientService.SaveFileToDirectoryAsync(Files[file.Index], destinationPath);
+                        var patientFile = new PatientFiles
+                        {
+                            FileType = "video",
+                            FileUrl = $"/videos/{uniqueFileName}",
+                            CreatedBy = Content.currentUser,
+                            AppId = Content.AppId,
+                            FilePages = 1
+                        };
+                        patientFilesList.Add(patientFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error saving video file: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        var destinationPath = Path.Combine("wwwroot", "others", uniqueFileName);
+                        await patientService.SaveFileToDirectoryAsync(Files[file.Index], destinationPath);
+                        var patientFile = new PatientFiles
+                        {
+                            FileType = "other",
+                            FileUrl = $"/others/{uniqueFileName}",
+                            CreatedBy = Content.currentUser,
+                            AppId = Content.AppId,
+                            FilePages = 1
+                        };
+                        patientFilesList.Add(patientFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error saving other file: {ex.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error appending files: {ex.Message}");
+        }
+        IsUploadInProgress = false;
+        IsLoadingFile= false;
+    }
+    private async Task<List<string>> ProcessUploadedFileAsync(int appId, PatientFiles img)
+    {
+        IsLoadingFile= true;
+         List<string> imglist = new();
+        string imageNameWithEx = Path.GetFileName(img.FileUrl);//filename
+        string imagePathWithoutExt = $"/images/{Path.GetFileNameWithoutExtension(imageNameWithEx)}";
+
+        if (Path.HasExtension(imageNameWithEx) && patientService.pdfFileExists(imageNameWithEx))
+        {
+            int num = img.FilePages;
+
+            if (!patientService.ImageFileExists($"{imagePathWithoutExt}-1.png"))
+            {
+                int pages = await pdfImageConverter.ConvertPdfToImages(img.FileUrl, 1, appId);
+                AddImagesToPatient(imglist, imagePathWithoutExt, num);
+            }
+            else
+            {
+                AddImagesToPatient(imglist, imagePathWithoutExt, num);
+            }
+        } 
+        else if (Path.HasExtension(imageNameWithEx) && patientService.IsImageFile(img.FileUrl))
+        {
+            string imagePath = $"/images/{imageNameWithEx}";
+            imglist.Add(imagePath);
+            Console.WriteLine($"Upload checking... pages: {imagePath}");
+        }
+        return imglist;  
+         IsLoadingFile= false;    
+    }
+    private void AddImagesToPatient(List<string> imglist, string imagePathWithoutExt, int pages)
+    {
+        for (int i = 1; i <= pages; i++)
+        {
+            string imageFilePath = Path.ChangeExtension($"{imagePathWithoutExt}-{i}", "png");
+            imglist.Add(imageFilePath);
+        }
+    }
+    public static string GenerateRandomString(int length)
+    {
+        var random = new Random();
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        return new string(Enumerable.Repeat(chars, length)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+    
+}
