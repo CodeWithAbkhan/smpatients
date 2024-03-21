@@ -13,7 +13,7 @@ dotnet ef migrations add initialCreate -o Data/Migrations
 dotnet ef database update
 dotnet run
 ```
-![Display Patient Record Details](/wwwroot/images/am-patients-management-system-project-display-patient-record-details-build-with-aspnet-core-dot-net-8-full-stack-docker-sql-server-image-deployed-on-vps-ubuntu-using-docker.png)
+![Display Patient Record Details](/wwwroot/images/sm-patients-management-system-project-display-patient-record-details-build-with-aspnet-core-dot-net-8-full-stack-docker-sql-server-image-deployed-on-vps-ubuntu-using-docker.png)
 
 ![Create New Patient](/smpatients/wwwroot/images/sm-patients-management-system-project-create-new-patient-build-with-aspnet-core-dot-net-8-full-stack-docker-sql-server-image-deployed-on-vps-ubuntu-using-docker.png)
 
