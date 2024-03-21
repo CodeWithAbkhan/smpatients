@@ -1,4 +1,4 @@
-```markdown
+
 # Project Introduction
 
 This project is a patients management system developed with ASP.NET Core Blazor .NET 8, featuring full-stack development. It is deployed on a Virtual Private Server (VPS) running Ubuntu 22.04 using Docker. The database is powered by SQL Server deployed within a Docker container.
@@ -181,7 +181,4 @@ chmod -R 755 /smpatients/frontend/files
 
 Verify permissions and execute additional commands as needed.
 
-```
-
-This markdown provides a comprehensive guide for setting up and running the SM Patients Management System Project. Ensure to follow the steps carefully for successful deployment and utilization of the system.
 ```
