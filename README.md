@@ -181,4 +181,7 @@ chmod -R 755 /smpatients/frontend/files
 
 Verify permissions and execute additional commands as needed.
 
-```
+
+## Contact Me
+
+You can reach out to me via email at [awahab.akhan@gmail.com](mailto:awahab.akhan@gmail.com) or through my Fiverr profile: [Fiverr Profile](https://www.fiverr.com/s/6x97Nq).
