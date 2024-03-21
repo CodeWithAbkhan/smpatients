@@ -3,7 +3,7 @@
 
 This project is a patients management system developed with ASP.NET Core Blazor .NET 8, featuring full-stack development. It is deployed on a Virtual Private Server (VPS) running Ubuntu 22.04 using Docker. The database is powered by SQL Server deployed within a Docker container.
 
-![Project Image](/wwwroot/images/-patients-management-system-project-build-with-aspnet-core-dot-net-8-full-stack-docker-sql-server-image-deployed-on-vps-ubuntu-using-docker.png)
+![Project Image](/smpatients/wwwroot/images/-patients-management-system-project-build-with-aspnet-core-dot-net-8-full-stack-docker-sql-server-image-deployed-on-vps-ubuntu-using-docker.png)
 
 ## Run Project
 
@@ -15,9 +15,9 @@ dotnet run
 ```
 ![Display Patient Record Details](/wwwroot/images/-patients-management-system-project-display-patient-record-details-build-with-aspnet-core-dot-net-8-full-stack-docker-sql-server-image-deployed-on-vps-ubuntu-using-docker.png)
 
-![Create New Patient](/wwwroot/images/-patients-management-system-project-create-new-patient-build-with-aspnet-core-dot-net-8-full-stack-docker-sql-server-image-deployed-on-vps-ubuntu-using-docker.png)
+![Create New Patient](/smpatients/wwwroot/images/-patients-management-system-project-create-new-patient-build-with-aspnet-core-dot-net-8-full-stack-docker-sql-server-image-deployed-on-vps-ubuntu-using-docker.png)
 
-![Upload files and images](/wwwroot/images/-patients-management-system-project-display-patient-details-build-with-aspnet-core-dot-net-8-full-stack-docker-sql-server-image-deployed-on-vps-ubuntu-using-docker.png)
+![Upload files and images](/smpatients/wwwroot/images/-patients-management-system-project-display-patient-details-build-with-aspnet-core-dot-net-8-full-stack-docker-sql-server-image-deployed-on-vps-ubuntu-using-docker.png)
 
 ## Features
 
